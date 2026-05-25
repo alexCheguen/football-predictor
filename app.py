@@ -57,6 +57,39 @@ for s in available_scopes:
     st.sidebar.caption(f"{s.title()} model: "
                        f"{pd.Timestamp(p.stat().st_mtime, unit='s'):%Y-%m-%d %H:%M}")
 
+# Feedback / feature request section
+with st.sidebar.expander("Feedback / feature request"):
+    st.caption("Spot a bug or have an idea? Drop it here.")
+    fb_type = st.selectbox("Type", ["Feature request", "Bug report", "Other"],
+                            key="fb_type")
+    fb_title = st.text_input("Short title", key="fb_title",
+                              placeholder="e.g. Add Champions League")
+    fb_desc = st.text_area("Details", key="fb_desc",
+                            placeholder="Describe the issue or idea...")
+    if st.button("Create on GitHub", key="fb_submit", type="secondary"):
+        if fb_title and fb_desc:
+            from urllib.parse import quote
+            label_map = {
+                "Feature request": "enhancement",
+                "Bug report": "bug",
+                "Other": "feedback",
+            }
+            prefix = {"Feature request": "[Feature] ", "Bug report": "[Bug] ", "Other": ""}[fb_type]
+            url = (
+                "https://github.com/jdgoated1/football-predictor/issues/new"
+                f"?title={quote(prefix + fb_title)}"
+                f"&body={quote(fb_desc)}"
+                f"&labels={label_map[fb_type]}"
+            )
+            st.markdown(f"[**Click here to post on GitHub →**]({url})")
+            st.caption("Pre-fills your text. You'll need a free GitHub account "
+                        "to publish. Or just share the link directly.")
+        else:
+            st.warning("Please fill in both title and details first.")
+    st.caption("Or browse [existing issues](https://github.com/jdgoated1/football-predictor/issues).")
+
+st.sidebar.divider()
+
 if st.sidebar.button("Update now",
                      help="Re-download latest match data and retrain (~30 sec)"):
     progress = st.sidebar.empty()
