@@ -12,6 +12,9 @@ env/
 # Raw CSV cache - regenerated on each fetch, ~40MB of noise
 data/raw/
 
+# Soccerdata TLS library download artifacts
+downloaded_files/
+
 # Logs
 *.log
 
