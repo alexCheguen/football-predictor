@@ -14,6 +14,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from src.flags import flagged
 from src.predictor import PredictorBundle
 from src.real_groups import REAL_GROUPS, resolve_groups
 from src.tournament import (
@@ -360,14 +361,17 @@ def render_match():
     bundle = get_bundle(scope)
     teams = sorted(bundle.teams)
 
+    # Format team names with flag emojis (for internationals; clubs unchanged)
+    fmt_team = (lambda t: flagged(t)) if scope == "internationals" else (lambda t: t)
     c1, c2, c3, c4 = st.columns([3, 3, 2, 2])
     home = c1.selectbox("Home team", teams,
                         index=teams.index("Arsenal") if "Arsenal" in teams else 0,
-                        key="m_home")
+                        key="m_home", format_func=fmt_team)
     away_options = [t for t in teams if t != home]
     default_away = "Liverpool" if "Liverpool" in away_options else away_options[0]
     away = c2.selectbox("Away team", away_options,
-                        index=away_options.index(default_away), key="m_away")
+                        index=away_options.index(default_away), key="m_away",
+                        format_func=fmt_team)
     neutral = c3.checkbox("Neutral venue", value=(scope == "internationals"),
                           key="m_neutral")
     blend = c4.slider("Ensemble weight", 0.0, 1.0, 1.0, 0.05, key="m_blend",
@@ -389,14 +393,16 @@ def render_match():
         odds_arg = (oh, od, oa)
 
     pred = bundle.predict(home, away, neutral=neutral, blend=blend, odds=odds_arg)
+    home_disp = fmt_team(home)
+    away_disp = fmt_team(away)
 
-    st.markdown(f"### {home}  vs  {away}")
+    st.markdown(f"### {home_disp}  vs  {away_disp}")
     hg, ag = pred["most_likely"]
 
     k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric(f"{home} win", f"{pred['outcome']['H']*100:.1f}%")
+    k1.metric(f"{home_disp} win", f"{pred['outcome']['H']*100:.1f}%")
     k2.metric("Draw",        f"{pred['outcome']['D']*100:.1f}%")
-    k3.metric(f"{away} win", f"{pred['outcome']['A']*100:.1f}%")
+    k3.metric(f"{away_disp} win", f"{pred['outcome']['A']*100:.1f}%")
     k4.metric("Predicted score", f"{hg} - {ag}")
     k5.metric("Expected goals", f"{pred['lambda_home']:.2f} - {pred['lambda_away']:.2f}")
 
@@ -600,7 +606,7 @@ def render_tournament():
             col = cols[i % len(cols)]
             with col:
                 st.markdown(f"**Group {chr(ord('A') + i)}**")
-                rows = [{"Team": t, "Elo": int(bundle.elo.rating(t))} for t in g]
+                rows = [{"Team": flagged(t), "Elo": int(bundle.elo.rating(t))} for t in g]
                 st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
     # ---- predicted fixtures ----
@@ -722,9 +728,9 @@ def render_tournament():
                     row["Date"] = pd.Timestamp(f["date"]).strftime("%a %d %b")
                 row.update({
                     "Group": chr(ord('A') + f["group_idx"]),
-                    "Home": f["home"],
+                    "Home": flagged(f["home"]),
                     "Score": score_text,
-                    "Away": f["away"],
+                    "Away": flagged(f["away"]),
                 })
                 gs_rows.append(row)
             st.dataframe(pd.DataFrame(gs_rows), hide_index=True, use_container_width=True,
@@ -751,15 +757,15 @@ def render_tournament():
                         # Show winning side probability for context
                         pass
                     ko_rows.append({
-                        "Home": m["home"],
+                        "Home": flagged(m["home"]),
                         "Score": score_text,
-                        "Away": m["away"],
-                        "Winner": m["winner"],
+                        "Away": flagged(m["away"]),
+                        "Winner": flagged(m["winner"]),
                     })
                 st.dataframe(pd.DataFrame(ko_rows), hide_index=True, use_container_width=True)
 
             if champion:
-                st.success(f"🏆 **Predicted Champion: {champion}**")
+                st.success(f"🏆 **Predicted Champion: {flagged(champion)}**")
 
         # ---- Chronological view (by real date when available, else by matchday) ----
         with view_chrono:
@@ -780,9 +786,9 @@ def render_tournament():
                             score_text += f" ({f['score_prob']*100:.0f}%)"
                         row = {
                             "Group":  chr(ord('A') + f["group_idx"]),
-                            "Home":   f["home"],
+                            "Home":   flagged(f["home"]),
                             "Score":  score_text,
-                            "Away":   f["away"],
+                            "Away":   flagged(f["away"]),
                         }
                         if "p_home" in f:
                             row["H %"] = f"{f['p_home']*100:.0f}%"
@@ -802,9 +808,9 @@ def render_tournament():
                     for f in md_fixtures:
                         row = {
                             "Group":  chr(ord('A') + f["group_idx"]),
-                            "Home":   f["home"],
+                            "Home":   flagged(f["home"]),
                             "Score":  f"{f['score'][0]}–{f['score'][1]}",
-                            "Away":   f["away"],
+                            "Away":   flagged(f["away"]),
                         }
                         if "p_home" in f:
                             row["H %"] = f"{f['p_home']*100:.0f}%"
@@ -825,10 +831,10 @@ def render_tournament():
                     if m.get("pens"):
                         score_text += f" → {m['winner']} (ET/pens)"
                     row = {
-                        "Home":   m["home"],
+                        "Home":   flagged(m["home"]),
                         "Score":  score_text,
-                        "Away":   m["away"],
-                        "Win":    m["winner"],
+                        "Away":   flagged(m["away"]),
+                        "Win":    flagged(m["winner"]),
                     }
                     if "p_home" in m:
                         row["H %"] = f"{m['p_home']*100:.0f}%"
@@ -855,9 +861,9 @@ def render_tournament():
                         if "score_prob" in f and f["score_prob"]:
                             score_text += f" ({f['score_prob']*100:.0f}%)"
                         row.update({
-                            "Home":   f["home"],
+                            "Home":   flagged(f["home"]),
                             "Score":  score_text,
-                            "Away":   f["away"],
+                            "Away":   flagged(f["away"]),
                         })
                         if "p_home" in f:
                             row["H %"] = f"{f['p_home']*100:.0f}%"
@@ -869,7 +875,7 @@ def render_tournament():
                         rows.append(row)
                     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
                     st.caption("Final standings:")
-                    srows = [{"Pos": i + 1, "Team": t, "Pts": s["pts"],
+                    srows = [{"Pos": i + 1, "Team": flagged(t), "Pts": s["pts"],
                               "GD": s["gd"], "GF": s["gf"]}
                              for i, (t, s) in enumerate(standings[gi])]
                     st.dataframe(pd.DataFrame(srows), hide_index=True, use_container_width=True)
