@@ -25,6 +25,11 @@ def health(base: str) -> dict | None:
     return {"name": "Football Predictor (in-process)", "mode": "direct"}
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_freshness(base: str) -> dict:
+    return _sources.data_freshness()
+
+
 @st.cache_data(ttl=600, show_spinner="Fetching fixtures...")
 def fetch_fixtures(base: str, league: str, days: int = 14) -> list[dict]:
     return _sources.fixtures(league, days=days)

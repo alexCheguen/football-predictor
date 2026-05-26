@@ -1272,14 +1272,26 @@ def render_tournament():
 # TAB 4: live data (powered by the FastAPI service)
 # ----------------------------------------------------------------------------
 def render_data():
-    # Data comes from api.sources (FBref via soccerdata) called in-process -
-    # no separate API server needed.
+    # Data comes from parquet files refreshed daily by the GitHub Action.
+    # No live scraping at user request time (Streamlit Cloud can't run Selenium).
     base = "in-process"
     try:
         leagues_list = api_client.fetch_leagues(base)
     except Exception as e:
         st.error(f"Could not list leagues: {e}")
         return
+
+    fresh = api_client.fetch_freshness(base)
+    if not fresh.get("schedules"):
+        st.warning(
+            "Live data cache not yet populated. The daily workflow has to run once "
+            "before this tab has anything to show. Trigger it manually from the "
+            "Actions tab on GitHub, or wait for the next scheduled run (06:30 UTC).")
+        return
+    st.caption(
+        f"Data refreshed daily by the GitHub Action. "
+        f"Schedules cached: {fresh.get('schedules','-')}  ·  "
+        f"Lineups cached: {fresh.get('lineups','-') or 'not yet'}")
 
     league = st.selectbox("League", leagues_list, key="data_league")
 

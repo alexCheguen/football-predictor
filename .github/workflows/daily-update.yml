@@ -12,7 +12,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
@@ -51,6 +51,13 @@ jobs:
                   intl.unlink()
           "
           python train.py
+
+      - name: Refresh live data (schedules + lineups for Live data tab)
+        # ubuntu-latest has Chrome pre-installed, so soccerdata's Selenium path works.
+        # Streamlit Cloud doesn't, hence pre-fetching here.
+        continue-on-error: true
+        run: |
+          python scripts/refresh_live_data.py
 
       - name: Commit updated data + models
         run: |

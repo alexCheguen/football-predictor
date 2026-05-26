@@ -1,18 +1,25 @@
-"""Data fetchers that wrap soccerdata.FBref with TTL caching.
+"""Read cached FBref data from parquet files.
 
-FBref is rate-limited; every reader call hits the network and parses HTML, so we
-cache results in-process. TTLs are deliberately short for fixtures/results (data
-changes daily) and longer for standings.
+The Streamlit Cloud container can't run soccerdata's Selenium-based scraper
+(no Chrome, read-only venv, IP blocked by FBref). So scraping happens in the
+daily GitHub Action via `scripts/refresh_live_data.py`, which commits parquet
+files under `data/processed/live/`. This module just reads those files.
+
+If the parquet files don't exist (fresh deploy before first workflow run),
+all readers return empty results and the callers surface a friendly message.
 """
 from __future__ import annotations
 
-import threading
-import time
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Callable
+from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
+
+
+ROOT = Path(__file__).resolve().parent.parent
+LIVE_DIR = ROOT / "data" / "processed" / "live"
+SCHEDULES_PATH = LIVE_DIR / "schedules.parquet"
+LINEUPS_PATH = LIVE_DIR / "lineups.parquet"
 
 
 LEAGUE_CODES: dict[str, str] = {
@@ -25,7 +32,6 @@ LEAGUE_CODES: dict[str, str] = {
 
 
 def current_season() -> str:
-    """Football season code in soccerdata's '2425' format. Season rolls over in August."""
     today = datetime.today()
     start = today.year if today.month >= 8 else today.year - 1
     return f"{str(start)[-2:]}{str(start + 1)[-2:]}"
@@ -39,52 +45,61 @@ def resolve_league(name: str) -> str:
     return LEAGUE_CODES[name]
 
 
-@dataclass
-class _CacheEntry:
-    value: Any
-    expires: float
+# `_mtime` keeps the in-process cache fresh against the parquet file - if the
+# file is rewritten (e.g. the GitHub Action committed new data and the app
+# restarted), the next read picks up the new content.
+_SCHEDULE_CACHE: tuple[float, pd.DataFrame] | None = None
+_LINEUPS_CACHE: tuple[float, pd.DataFrame] | None = None
 
 
-class _TTLCache:
-    def __init__(self) -> None:
-        self._store: dict[str, _CacheEntry] = {}
-        self._lock = threading.Lock()
-
-    def get_or_compute(self, key: str, ttl_seconds: int, compute: Callable[[], Any]) -> Any:
-        now = time.time()
-        with self._lock:
-            entry = self._store.get(key)
-            if entry and entry.expires > now:
-                return entry.value
-        value = compute()
-        with self._lock:
-            self._store[key] = _CacheEntry(value=value, expires=now + ttl_seconds)
-        return value
-
-    def clear(self) -> None:
-        with self._lock:
-            self._store.clear()
+def _read_cached(path: Path, slot: str) -> pd.DataFrame:
+    global _SCHEDULE_CACHE, _LINEUPS_CACHE
+    if not path.exists():
+        return pd.DataFrame()
+    mtime = path.stat().st_mtime
+    cur = _SCHEDULE_CACHE if slot == "schedule" else _LINEUPS_CACHE
+    if cur and cur[0] == mtime:
+        return cur[1]
+    df = pd.read_parquet(path)
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    if slot == "schedule":
+        _SCHEDULE_CACHE = (mtime, df)
+    else:
+        _LINEUPS_CACHE = (mtime, df)
+    return df
 
 
-_CACHE = _TTLCache()
+def _all_schedules() -> pd.DataFrame:
+    return _read_cached(SCHEDULES_PATH, "schedule")
 
 
-def _fbref(league: str, season: str):
-    import soccerdata as sd
-    return sd.FBref(leagues=league, seasons=season, no_cache=False)
+def _all_lineups() -> pd.DataFrame:
+    return _read_cached(LINEUPS_PATH, "lineups")
 
 
-def _schedule(league: str, season: str) -> pd.DataFrame:
-    """Cached read_schedule. Returns a flat DataFrame (index reset)."""
-    key = f"schedule:{league}:{season}"
-
-    def fetch() -> pd.DataFrame:
-        df = _fbref(league, season).read_schedule()
-        df = df.reset_index()
-        df["date"] = pd.to_datetime(df.get("date"), errors="coerce")
+def _schedule_for(league_name: str, season: str | None = None) -> pd.DataFrame:
+    """Filter the cached schedules to one league + season."""
+    df = _all_schedules()
+    if df.empty:
         return df
+    seas = season or current_season()
+    mask = df["league"] == league_name
+    if "season" in df.columns:
+        mask &= df["season"].astype(str) == seas
+    return df[mask].copy()
 
-    return _CACHE.get_or_compute(key, ttl_seconds=600, compute=fetch)
+
+def data_freshness() -> dict:
+    """Surface when the cached data was last refreshed (for UI display)."""
+    out = {}
+    for label, path in [("schedules", SCHEDULES_PATH), ("lineups", LINEUPS_PATH)]:
+        if path.exists():
+            ts = datetime.fromtimestamp(path.stat().st_mtime)
+            out[label] = ts.isoformat()
+        else:
+            out[label] = None
+    return out
 
 
 def _parse_score(value) -> tuple[int, int] | None:
@@ -105,9 +120,9 @@ def _parse_score(value) -> tuple[int, int] | None:
 
 def fixtures(league_name: str, days: int = 14, season: str | None = None) -> list[dict]:
     """Upcoming fixtures within `days` days, ordered by kickoff."""
-    fb_code = resolve_league(league_name)
+    resolve_league(league_name)  # validate
     seas = season or current_season()
-    df = _schedule(fb_code, seas)
+    df = _schedule_for(league_name, seas)
     today = pd.Timestamp(datetime.today().date())
     cutoff = today + pd.Timedelta(days=days)
 
@@ -137,9 +152,9 @@ def fixtures(league_name: str, days: int = 14, season: str | None = None) -> lis
 
 def results(league_name: str, limit: int = 20, season: str | None = None) -> list[dict]:
     """Most recent completed matches, newest first."""
-    fb_code = resolve_league(league_name)
+    resolve_league(league_name)
     seas = season or current_season()
-    df = _schedule(fb_code, seas)
+    df = _schedule_for(league_name, seas)
     today = pd.Timestamp(datetime.today().date())
 
     completed = df[df["date"].notna() & (df["date"] <= today)].copy()
@@ -169,9 +184,9 @@ def results(league_name: str, limit: int = 20, season: str | None = None) -> lis
 
 def standings(league_name: str, season: str | None = None) -> list[dict]:
     """Computed standings from completed games this season."""
-    fb_code = resolve_league(league_name)
+    resolve_league(league_name)
     seas = season or current_season()
-    df = _schedule(fb_code, seas)
+    df = _schedule_for(league_name, seas)
 
     table: dict[str, dict] = {}
     for row in df.itertuples(index=False):
@@ -217,79 +232,77 @@ def standings(league_name: str, season: str | None = None) -> list[dict]:
     return rows
 
 
+def _s(v):
+    if v is None or pd.isna(v):
+        return None
+    s = str(v).strip()
+    return s or None
+
+
 def lineup(game_id: str, league_name: str, season: str | None = None) -> dict:
-    """Post-match lineups from FBref for a given game_id.
+    """Lineups for one match, looked up by `game_id` in the cached parquet."""
+    resolve_league(league_name)
+    all_lups = _all_lineups()
+    if all_lups.empty:
+        return {"home": None, "away": None}
+    df = all_lups[all_lups["game_id"].astype(str) == str(game_id)].copy()
+    if df.empty:
+        return {"home": None, "away": None}
 
-    `game_id` is the FBref game identifier appearing in fixtures/results.
-    """
-    fb_code = resolve_league(league_name)
-    seas = season or current_season()
-    key = f"lineup:{fb_code}:{seas}:{game_id}"
+    teams_in_df = df["team"].unique().tolist() if "team" in df.columns else []
+    if len(teams_in_df) < 2:
+        return {"home": None, "away": None, "raw_teams": teams_in_df}
 
-    def fetch() -> dict:
-        df = _fbref(fb_code, seas).read_lineup(match_id=game_id)
-        df = df.reset_index()
-        teams_in_df = df["team"].unique().tolist() if "team" in df.columns else []
-        if len(teams_in_df) < 2:
-            return {"home": None, "away": None, "raw_teams": teams_in_df}
+    # Prefer home_team/away_team columns committed by refresh_live_data; fall back
+    # to parsing the 'game' string if those are missing.
+    home_team = away_team = None
+    if "home_team" in df.columns and "away_team" in df.columns:
+        home_team = _s(df["home_team"].iloc[0])
+        away_team = _s(df["away_team"].iloc[0])
+    if (home_team is None or away_team is None) and "game" in df.columns:
+        game_str = str(df["game"].iloc[0])
+        after_date = game_str.split(" ", 1)[1] if " " in game_str else game_str
+        for candidate in teams_in_df:
+            if after_date.startswith(candidate + "-"):
+                home_team = candidate
+                away_team = after_date[len(candidate) + 1:]
+                break
+    if home_team is None or away_team is None:
+        home_team, away_team = teams_in_df[0], teams_in_df[1]
 
-        # Derive home/away from the 'game' index string, format "YYYY-MM-DD Home-Away"
-        home_team = away_team = None
-        if "game" in df.columns:
-            game_str = str(df["game"].iloc[0])
-            # Strip leading date
-            after_date = game_str.split(" ", 1)[1] if " " in game_str else game_str
-            # The separator between home and away in FBref is "-" but team names can
-            # contain hyphens; match against teams_in_df to disambiguate.
-            for candidate in teams_in_df:
-                if after_date.startswith(candidate + "-"):
-                    home_team = candidate
-                    away_team = after_date[len(candidate) + 1:]
-                    break
-        if home_team is None or away_team is None:
-            home_team, away_team = teams_in_df[0], teams_in_df[1]
+    starter_mask = df["is_starter"].fillna(False).astype(bool) if "is_starter" in df.columns else None
 
-        starter_mask = df["is_starter"].fillna(False).astype(bool) if "is_starter" in df.columns else None
+    def players_for(team_name: str, kind: str) -> list[dict]:
+        sub = df[df["team"] == team_name]
+        if starter_mask is not None:
+            team_starter = starter_mask.loc[sub.index]
+            sub = sub[team_starter] if kind == "starting" else sub[~team_starter]
+        players = []
+        for r in sub.itertuples(index=False):
+            num = getattr(r, "jersey_number", None)
+            mins = getattr(r, "minutes_played", None)
+            players.append({
+                "number": str(int(num)) if pd.notna(num) else None,
+                "name": _s(getattr(r, "player", None)) or "",
+                "position": _s(getattr(r, "position", None)),
+                "minutes": int(mins) if pd.notna(mins) else None,
+            })
+        return players
 
-        def _s(v):
-            if v is None or pd.isna(v):
-                return None
-            s = str(v).strip()
-            return s or None
-
-        def players_for(team_name: str, kind: str) -> list[dict]:
-            sub = df[df["team"] == team_name]
-            if starter_mask is not None:
-                team_starter = starter_mask.loc[sub.index]
-                sub = sub[team_starter] if kind == "starting" else sub[~team_starter]
-            players = []
-            for r in sub.itertuples(index=False):
-                num = getattr(r, "jersey_number", None)
-                mins = getattr(r, "minutes_played", None)
-                players.append({
-                    "number": str(int(num)) if pd.notna(num) else None,
-                    "name": _s(getattr(r, "player", None)) or "",
-                    "position": _s(getattr(r, "position", None)),
-                    "minutes": int(mins) if pd.notna(mins) else None,
-                })
-            return players
-
-        return {
-            "home": {
-                "team": home_team,
-                "formation": None,
-                "starting": players_for(home_team, "starting"),
-                "bench": players_for(home_team, "bench"),
-            },
-            "away": {
-                "team": away_team,
-                "formation": None,
-                "starting": players_for(away_team, "starting"),
-                "bench": players_for(away_team, "bench"),
-            },
-        }
-
-    return _CACHE.get_or_compute(key, ttl_seconds=3600, compute=fetch)
+    return {
+        "home": {
+            "team": home_team,
+            "formation": None,
+            "starting": players_for(home_team, "starting"),
+            "bench": players_for(home_team, "bench"),
+        },
+        "away": {
+            "team": away_team,
+            "formation": None,
+            "starting": players_for(away_team, "starting"),
+            "bench": players_for(away_team, "bench"),
+        },
+    }
 
 
 def list_leagues() -> list[str]:
@@ -298,9 +311,9 @@ def list_leagues() -> list[str]:
 
 def teams_in_league(league_name: str, season: str | None = None) -> list[str]:
     """Distinct team names appearing in this season's schedule (FBref naming)."""
-    fb_code = resolve_league(league_name)
+    resolve_league(league_name)
     seas = season or current_season()
-    df = _schedule(fb_code, seas)
+    df = _schedule_for(league_name, seas)
     names = set()
     for col in ("home_team", "away_team"):
         if col in df.columns:
@@ -311,9 +324,9 @@ def teams_in_league(league_name: str, season: str | None = None) -> list[str]:
 def _team_completed_matches(team: str, league_name: str, season: str | None,
                             limit: int | None = None) -> pd.DataFrame:
     """Helper: return this team's completed matches, newest first."""
-    fb_code = resolve_league(league_name)
+    resolve_league(league_name)
     seas = season or current_season()
-    df = _schedule(fb_code, seas)
+    df = _schedule_for(league_name, seas)
     if "home_team" not in df.columns or "away_team" not in df.columns:
         return df.iloc[0:0]
     mask = (df["home_team"] == team) | (df["away_team"] == team)
