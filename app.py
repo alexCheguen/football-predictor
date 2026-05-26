@@ -231,12 +231,137 @@ section[data-testid="stSidebar"] h1 {
 }
 .block-container { padding-top: 1.5rem !important; }
 
+/* ----- Group stage cards ----- */
+.group-card {
+    background: linear-gradient(180deg, rgba(19,24,37,0.85) 0%, rgba(13,18,30,0.95) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 0.9rem 1rem 1rem;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.18);
+}
+.group-card .gc-header {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.group-card .gc-letter {
+    font-weight: 800;
+    font-size: 1.05rem;
+    background: linear-gradient(95deg, #34d399 0%, #fbbf24 90%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.03em;
+}
+.group-card table.gc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.75rem;
+    font-size: 0.82rem;
+}
+.group-card table.gc-table th, .group-card table.gc-table td {
+    padding: 5px 6px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.group-card table.gc-table th { color: #94a3b8; font-weight: 600; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.04em; }
+.group-card table.gc-table td.team-cell { text-align: left; color: #f1f5f9; font-weight: 500; }
+.group-card table.gc-table td.pos-cell { text-align: center; color: #94a3b8; width: 26px;
+    font-family: 'JetBrains Mono', monospace; }
+.group-card table.gc-table td.pts-cell { font-weight: 700; color: #f8fafc;
+    font-family: 'JetBrains Mono', monospace; }
+.group-card tr.adv-q td.pos-cell { color: #34d399; }
+.group-card tr.adv-q td.pos-cell::before { content: ""; display: inline-block; width: 3px;
+    height: 14px; background: #10b981; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.group-card tr.adv-t td.pos-cell { color: #fbbf24; }
+.group-card tr.adv-t td.pos-cell::before { content: ""; display: inline-block; width: 3px;
+    height: 14px; background: #f59e0b; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.group-card .gc-fixtures { font-size: 0.78rem; color: #cbd5e1; }
+.group-card .gc-fixtures .fx {
+    display: flex; align-items: center; gap: 0.35rem;
+    padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.05);
+}
+.group-card .gc-fixtures .fx:last-child { border-bottom: none; }
+.group-card .gc-fixtures .fx .fx-date { width: 56px; color: #64748b; font-size: 0.72rem; }
+.group-card .gc-fixtures .fx .fx-home  { flex: 1; text-align: right; }
+.group-card .gc-fixtures .fx .fx-away  { flex: 1; text-align: left; }
+.group-card .gc-fixtures .fx .fx-score {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.85rem;
+    color: #f8fafc; padding: 1px 8px; min-width: 44px; text-align: center;
+    background: rgba(255,255,255,0.04); border-radius: 5px;
+}
+.group-card .gc-fixtures .fx.played .fx-score { background: rgba(16,185,129,0.18);
+    color: #34d399; }
+
+/* ----- Knockout bracket ----- */
+.bracket-wrap {
+    display: flex; gap: 0.6rem; overflow-x: auto; padding: 1rem 0.4rem 0.5rem;
+    align-items: stretch;
+}
+.bracket-round {
+    display: flex; flex-direction: column; justify-content: space-around;
+    min-width: 195px; flex: 1; gap: 0.55rem;
+}
+.bracket-round-title {
+    text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;
+}
+.bracket-match {
+    background: linear-gradient(180deg, rgba(19,24,37,0.85) 0%, rgba(13,18,30,0.95) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-left: 3px solid rgba(16,185,129,0.5);
+    border-radius: 8px;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+}
+.bracket-match.pens { border-left-color: rgba(251,191,36,0.7); }
+.bracket-match.played { border-left-color: rgba(34,211,238,0.7); }
+.bracket-match .bm-side {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 2px 0; gap: 0.4rem;
+}
+.bracket-match .bm-side .team {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #cbd5e1; font-weight: 500;
+}
+.bracket-match .bm-side.winner .team { color: #f8fafc; font-weight: 700; }
+.bracket-match .bm-side.loser  .team { color: #64748b; }
+.bracket-match .bm-side .gs {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    min-width: 20px; text-align: right;
+}
+.bracket-match .bm-side.winner .gs { color: #34d399; }
+.bracket-match .bm-side.loser  .gs { color: #64748b; }
+.bracket-match .bm-meta {
+    margin-top: 4px; padding-top: 4px; border-top: 1px dashed rgba(255,255,255,0.05);
+    font-size: 0.66rem; color: #94a3b8; text-align: center; letter-spacing: 0.04em;
+}
+.bracket-champion {
+    background: linear-gradient(135deg, #14532d 0%, #422006 100%);
+    border: 1px solid rgba(251,191,36,0.5);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    font-weight: 700;
+    margin-top: 1rem;
+}
+.bracket-champion .ch-label { color: #fbbf24; text-transform: uppercase;
+    letter-spacing: 0.1em; font-size: 0.7rem; }
+.bracket-champion .ch-team { color: #fef3c7; font-size: 1.3rem; margin-top: 0.3rem; }
+
 /* ----- Mobile tweaks ----- */
 @media (max-width: 768px) {
     .hero { padding: 1.5rem 1.3rem; }
     .hero h1 { font-size: 1.8rem !important; }
     .hero-subtitle { font-size: 0.95rem; }
     [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
+    .bracket-round { min-width: 165px; }
 }
 </style>
 """
@@ -471,25 +596,28 @@ def render_match():
 # ----------------------------------------------------------------------------
 # TAB 2: League season
 # ----------------------------------------------------------------------------
-def render_league():
-    if "leagues" not in available_scopes:
-        st.warning("League model not available. Train it first.")
-        return
-    bundle = get_bundle("leagues")
+LEAGUE_BADGES = {
+    "Premier League": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+    "La Liga":        "🇪🇸",
+    "Bundesliga":     "🇩🇪",
+    "Serie A":        "🇮🇹",
+    "Ligue 1":        "🇫🇷",
+}
 
-    LEAGUES = ["Premier League", "La Liga", "Bundesliga", "Serie A", "Ligue 1"]
-    c1, c2, c3 = st.columns([3, 2, 2])
-    league = c1.selectbox("League", LEAGUES, key="l_league")
-    continue_season = c2.toggle("Continue from current standings", value=True,
-                                key="l_continue",
-                                help="If on, only the remaining fixtures are simulated.")
-    n_sims = c3.number_input("Simulations", min_value=200, max_value=20000, value=3000,
-                             step=500, key="l_nsims")
 
+def _render_one_league(bundle, league: str, key_prefix: str) -> None:
+    """Render the full league simulator for one league. Called per tab."""
     state = current_state_for(league)
     if state is None or not state.teams:
         st.error(f"No data found for {league}.")
         return
+
+    c1, c2 = st.columns([2, 2])
+    continue_season = c1.toggle("Continue from current standings", value=True,
+                                key=f"{key_prefix}_continue",
+                                help="If on, only the remaining fixtures are simulated.")
+    n_sims = c2.number_input("Simulations", min_value=200, max_value=20000, value=3000,
+                             step=500, key=f"{key_prefix}_nsims")
 
     if continue_season:
         played = len(state.played_pairs)
@@ -497,12 +625,12 @@ def render_league():
         st.caption(f"{len(state.teams)} teams. {played}/{total} fixtures played. "
                    f"Simulating the remaining {total - played}.")
     else:
-        st.caption(f"{len(state.teams)} teams. Simulating a full {len(state.teams)*(len(state.teams)-1)} match season from scratch.")
+        st.caption(f"{len(state.teams)} teams. Simulating a full "
+                   f"{len(state.teams)*(len(state.teams)-1)} match season from scratch.")
 
     use_logos = has_logos()
 
     if continue_season:
-        # Show the current table
         with st.expander("Current standings (real)", expanded=False):
             cur_rows = []
             for t in sorted(state.teams,
@@ -520,7 +648,7 @@ def render_league():
             cfg = {" ": st.column_config.ImageColumn("", width="small")} if use_logos else None
             st.dataframe(cur, use_container_width=True, column_config=cfg)
 
-    if st.button("Run season simulation", key="l_run", type="primary"):
+    if st.button("Run season simulation", key=f"{key_prefix}_run", type="primary"):
         with st.spinner(f"Running {n_sims:,} simulations..."):
             result = simulate_league(bundle, state.teams, n_sims=int(n_sims),
                                      start=state if continue_season else None)
@@ -555,6 +683,20 @@ def render_league():
             st.plotly_chart(fig, use_container_width=True)
 
 
+def render_league():
+    if "leagues" not in available_scopes:
+        st.warning("League model not available. Train it first.")
+        return
+    bundle = get_bundle("leagues")
+
+    leagues = list(LEAGUE_BADGES.keys())
+    tab_labels = [f"{LEAGUE_BADGES[lg]}  {lg}" for lg in leagues]
+    league_tabs = st.tabs(tab_labels)
+    for tab, lg in zip(league_tabs, leagues):
+        with tab:
+            _render_one_league(bundle, lg, key_prefix=f"l_{lg.replace(' ', '_').lower()}")
+
+
 # ----------------------------------------------------------------------------
 # TAB 3: Tournament (group + knockout)
 # ----------------------------------------------------------------------------
@@ -568,6 +710,204 @@ def _snake_seed(teams_ranked: list[str], n_groups: int) -> list[list[str]]:
             slot = n_groups - 1 - slot
         groups[slot].append(t)
     return groups
+
+
+# ----------------------------------------------------------------------------
+# Tournament visualisation helpers
+# ----------------------------------------------------------------------------
+import html as _html
+
+
+def _team_label(team: str) -> str:
+    """Short team label with a leading flag if known. HTML-escaped."""
+    from src.flags import flag as _flag
+    f = _flag(team)
+    return f"{f} {_html.escape(team)}".strip() if f else _html.escape(team)
+
+
+def _stats_from_fixtures(group_teams: list[str],
+                          group_fixtures: list[dict]) -> dict[str, dict]:
+    """Recover P/W/D/L/GF/GA from the predicted fixture list for one group."""
+    stats = {t: {"P": 0, "W": 0, "D": 0, "L": 0, "GF": 0, "GA": 0} for t in group_teams}
+    for f in group_fixtures:
+        h, a = f["home"], f["away"]
+        hg, ag = f["score"]
+        if h not in stats or a not in stats:
+            continue
+        stats[h]["P"] += 1; stats[a]["P"] += 1
+        stats[h]["GF"] += hg; stats[h]["GA"] += ag
+        stats[a]["GF"] += ag; stats[a]["GA"] += hg
+        if hg > ag:
+            stats[h]["W"] += 1; stats[a]["L"] += 1
+        elif hg < ag:
+            stats[a]["W"] += 1; stats[h]["L"] += 1
+        else:
+            stats[h]["D"] += 1; stats[a]["D"] += 1
+    return stats
+
+
+def _render_group_cards(fixtures: list[dict], standings: list[list[tuple]],
+                         groups: list[list[str]], fmt) -> None:
+    """Render each group as a styled card with standings + fixtures.
+
+    Grid: 3 columns when there are 6+ groups, 4 when 4, else 2.
+    """
+    n_groups = len(groups)
+    if n_groups >= 6:
+        cols_per_row = 3
+    elif n_groups == 4:
+        cols_per_row = 4
+    elif n_groups in (2, 3):
+        cols_per_row = n_groups
+    else:
+        cols_per_row = 2
+
+    # Best-3rds qualifiers (highlighted yellow) if format uses them
+    best_thirds_set: set[str] = set()
+    if fmt.best_thirds > 0:
+        thirds = []
+        for ranked in standings:
+            if len(ranked) > fmt.advance_per_group:
+                team, st_dict = ranked[fmt.advance_per_group]
+                thirds.append((team, st_dict))
+        thirds.sort(key=lambda kv: (-kv[1]["pts"], -kv[1]["gd"], -kv[1]["gf"]))
+        best_thirds_set = {t for t, _ in thirds[:fmt.best_thirds]}
+
+    def card_html(gi: int) -> str:
+        letter = chr(ord("A") + gi)
+        stats = _stats_from_fixtures(groups[gi], [f for f in fixtures if f["group_idx"] == gi])
+        # Standings table rows
+        rows_html = []
+        for pos, (team, sd) in enumerate(standings[gi], start=1):
+            s = stats[team]
+            row_class = ""
+            if pos <= fmt.advance_per_group:
+                row_class = "adv-q"
+            elif team in best_thirds_set:
+                row_class = "adv-t"
+            rows_html.append(
+                f'<tr class="{row_class}">'
+                f'<td class="pos-cell">{pos}</td>'
+                f'<td class="team-cell">{_team_label(team)}</td>'
+                f'<td>{s["P"]}</td>'
+                f'<td>{s["W"]}</td>'
+                f'<td>{s["D"]}</td>'
+                f'<td>{s["L"]}</td>'
+                f'<td>{s["GF"]}–{s["GA"]}</td>'
+                f'<td>{(sd["gd"]):+d}</td>'
+                f'<td class="pts-cell">{sd["pts"]}</td>'
+                f'</tr>'
+            )
+        # Fixtures list (sorted by date if available, else by matchday)
+        gfx = sorted(
+            [f for f in fixtures if f["group_idx"] == gi],
+            key=lambda f: (f.get("date") or "", f.get("matchday", 0)),
+        )
+        fx_html = []
+        for f in gfx:
+            played = f.get("is_actual", False)
+            date_label = ""
+            if f.get("date"):
+                date_label = pd.Timestamp(f["date"]).strftime("%d %b")
+            elif "matchday" in f:
+                date_label = f"MD{f['matchday']}"
+            sc = f"{f['score'][0]}–{f['score'][1]}"
+            fx_html.append(
+                f'<div class="fx{" played" if played else ""}">'
+                f'<span class="fx-date">{date_label}</span>'
+                f'<span class="fx-home">{_team_label(f["home"])}</span>'
+                f'<span class="fx-score">{sc}</span>'
+                f'<span class="fx-away">{_team_label(f["away"])}</span>'
+                f'</div>'
+            )
+        return (
+            f'<div class="group-card">'
+            f'<div class="gc-header"><span class="gc-letter">GROUP {letter}</span></div>'
+            f'<table class="gc-table">'
+            f'<thead><tr><th></th><th style="text-align:left">Team</th>'
+            f'<th>P</th><th>W</th><th>D</th><th>L</th><th>GF–GA</th><th>GD</th><th>Pts</th>'
+            f'</tr></thead><tbody>{"".join(rows_html)}</tbody></table>'
+            f'<div class="gc-fixtures">{"".join(fx_html)}</div>'
+            f'</div>'
+        )
+
+    # Render in rows of `cols_per_row`
+    for row_start in range(0, n_groups, cols_per_row):
+        cols = st.columns(cols_per_row)
+        for col_idx in range(cols_per_row):
+            gi = row_start + col_idx
+            if gi >= n_groups:
+                break
+            with cols[col_idx]:
+                st.markdown(card_html(gi), unsafe_allow_html=True)
+
+    # Legend
+    legend_parts = []
+    legend_parts.append('<span style="color:#34d399">▌</span> Advances')
+    if fmt.best_thirds > 0:
+        legend_parts.append('<span style="color:#fbbf24">▌</span> Best 3rd-place')
+    st.markdown(
+        f'<div style="color:#94a3b8;font-size:0.78rem;margin-top:0.2rem">'
+        f'{" &nbsp; ".join(legend_parts)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_bracket(rounds: list[list[dict]], champion: str | None) -> None:
+    """Render the knockout rounds as a horizontal bracket of match cards."""
+    if not rounds:
+        return
+    round_cols_html = []
+    for round_matches in rounds:
+        round_name = round_matches[0]["round"]
+        date_label = ""
+        if round_matches[0].get("date"):
+            date_label = f' · {pd.Timestamp(round_matches[0]["date"]).strftime("%d %b")}'
+        match_html = []
+        for m in round_matches:
+            hg, ag = m["score"]
+            winner = m["winner"]
+            played = m.get("is_actual", False)
+            pens = m.get("pens", False)
+            home_class = "winner" if winner == m["home"] else "loser"
+            away_class = "winner" if winner == m["away"] else "loser"
+            classes = ["bracket-match"]
+            if played: classes.append("played")
+            if pens:   classes.append("pens")
+            meta = ""
+            if pens:
+                meta = f'<div class="bm-meta">ET / pens → {_html.escape(winner)}</div>'
+            elif played:
+                meta = '<div class="bm-meta">✓ played</div>'
+            match_html.append(
+                f'<div class="{" ".join(classes)}">'
+                f'<div class="bm-side {home_class}">'
+                f'<span class="team">{_team_label(m["home"])}</span>'
+                f'<span class="gs">{hg}</span></div>'
+                f'<div class="bm-side {away_class}">'
+                f'<span class="team">{_team_label(m["away"])}</span>'
+                f'<span class="gs">{ag}</span></div>'
+                f'{meta}'
+                f'</div>'
+            )
+        round_cols_html.append(
+            f'<div class="bracket-round">'
+            f'<div class="bracket-round-title">{_html.escape(round_name)}{date_label}</div>'
+            f'{"".join(match_html)}'
+            f'</div>'
+        )
+    st.markdown(
+        f'<div class="bracket-wrap">{"".join(round_cols_html)}</div>',
+        unsafe_allow_html=True,
+    )
+    if champion:
+        st.markdown(
+            f'<div class="bracket-champion">'
+            f'<div class="ch-label">🏆 Predicted Champion</div>'
+            f'<div class="ch-team">{_team_label(champion)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_tournament():
@@ -733,13 +1073,12 @@ def render_tournament():
         # ---- By stage view: one section per tournament stage ----
         with view_by_stage:
             st.caption(
-                "Predictions organised by tournament stage "
-                "(Group Stage → R32 → R16 → QF → SF → Final). Each section is "
-                "self-contained. Played matches show ✓ actual results; everything else "
-                "is the model's predicted score."
+                "Predictions organised by stage. Group cards show standings + every "
+                "fixture; knockout rounds render as a bracket. Played matches are "
+                "highlighted; everything else is the model's predicted score."
             )
 
-            # ---- Group stage section ----
+            # ---- Group stage (visual cards) ----
             st.markdown("### Group Stage")
             n_played = sum(1 for f in fixtures if f.get("is_actual"))
             n_total = len(fixtures)
@@ -748,55 +1087,16 @@ def render_tournament():
                            f"{n_total - n_played} predicted.")
             else:
                 st.caption(f"All {n_total} matches predicted (tournament hasn't started yet).")
-            gs_rows = []
-            for f in fixtures:
-                marker = "✓ " if f.get("is_actual") else ""
-                score_text = f"{marker}{f['score'][0]}–{f['score'][1]}"
-                if not f.get("is_actual") and f.get("score_prob"):
-                    score_text += f" ({f['score_prob']*100:.0f}%)"
-                row = {}
-                if "date" in f:
-                    row["Date"] = pd.Timestamp(f["date"]).strftime("%a %d %b")
-                row.update({
-                    "Group": chr(ord('A') + f["group_idx"]),
-                    "Home": flagged(f["home"]),
-                    "Score": score_text,
-                    "Away": flagged(f["away"]),
-                })
-                gs_rows.append(row)
-            st.dataframe(pd.DataFrame(gs_rows), hide_index=True, use_container_width=True,
-                         height=min(450, 38 + 35 * len(gs_rows)))
+            _render_group_cards(fixtures, standings, groups, fmt)
 
-            # ---- One section per knockout round ----
-            for round_matches in rounds:
-                round_name = round_matches[0]["round"]
-                round_date = round_matches[0].get("date")
-                n_actual_round = sum(1 for m in round_matches if m.get("is_actual"))
-                header = f"### {round_name}"
-                if round_date:
-                    header += f"  _(from {pd.Timestamp(round_date).strftime('%d %b')})_"
-                st.markdown(header)
-                if n_actual_round > 0:
-                    st.caption(f"{n_actual_round} of {len(round_matches)} matches played.")
-                ko_rows = []
-                for m in round_matches:
-                    marker = "✓ " if m.get("is_actual") else ""
-                    score_text = f"{marker}{m['score'][0]}–{m['score'][1]}"
-                    if m.get("pens"):
-                        score_text += f" → {m['winner']} (ET/pens)"
-                    elif not m.get("is_actual") and m.get("p_home") is not None:
-                        # Show winning side probability for context
-                        pass
-                    ko_rows.append({
-                        "Home": flagged(m["home"]),
-                        "Score": score_text,
-                        "Away": flagged(m["away"]),
-                        "Winner": flagged(m["winner"]),
-                    })
-                st.dataframe(pd.DataFrame(ko_rows), hide_index=True, use_container_width=True)
-
-            if champion:
-                st.success(f"🏆 **Predicted Champion: {flagged(champion)}**")
+            # ---- Knockout bracket (visual) ----
+            if rounds:
+                st.markdown("### Knockout Bracket")
+                ko_total = sum(len(r) for r in rounds)
+                ko_played = sum(1 for r in rounds for m in r if m.get("is_actual"))
+                if ko_played > 0:
+                    st.caption(f"{ko_played} of {ko_total} knockout matches played.")
+                _render_bracket(rounds, champion)
 
         # ---- Chronological view (by real date when available, else by matchday) ----
         with view_chrono:
