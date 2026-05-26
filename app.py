@@ -23,6 +23,7 @@ from src.tournament import (
     predict_modal_bracket, sample_one_tournament, simulate_knockout, simulate_league,
     top_n_by_elo,
 )
+import app_api_client as api_client
 
 st.set_page_config(page_title="Football Predictor", layout="wide",
                    page_icon=":soccer:")
@@ -492,7 +493,8 @@ st.sidebar.divider()
 # ============================================================================
 # Tabs
 # ============================================================================
-tab_match, tab_league, tab_cup = st.tabs(["Single match", "League season", "Tournament"])
+tab_match, tab_league, tab_cup, tab_data = st.tabs(
+    ["Single match", "League season", "Tournament", "Live data"])
 
 
 # ----------------------------------------------------------------------------
@@ -1266,6 +1268,172 @@ def render_tournament():
                 st.plotly_chart(fig, use_container_width=True)
 
 
+# ----------------------------------------------------------------------------
+# TAB 4: live data (powered by the FastAPI service)
+# ----------------------------------------------------------------------------
+def render_data():
+    # Data comes from api.sources (FBref via soccerdata) called in-process -
+    # no separate API server needed.
+    base = "in-process"
+    try:
+        leagues_list = api_client.fetch_leagues(base)
+    except Exception as e:
+        st.error(f"Could not list leagues: {e}")
+        return
+
+    league = st.selectbox("League", leagues_list, key="data_league")
+
+    sub_fix, sub_res, sub_tab, sub_lup, sub_team = st.tabs(
+        ["Upcoming fixtures", "Recent results", "Standings", "Lineups", "Team focus"])
+
+    with sub_fix:
+        days = st.slider("Look-ahead (days)", 1, 60, 14, key="data_fix_days")
+        try:
+            rows = api_client.fetch_fixtures(base, league, days=days)
+        except Exception as e:
+            st.error(f"Fetch failed: {e}")
+            rows = []
+        if not rows:
+            st.info("No upcoming fixtures in this window.")
+        else:
+            df = pd.DataFrame(rows)[["date", "time", "home", "away", "venue", "week"]]
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    with sub_res:
+        limit = st.slider("How many", 5, 100, 20, key="data_res_limit")
+        try:
+            rows = api_client.fetch_results(base, league, limit=limit)
+        except Exception as e:
+            st.error(f"Fetch failed: {e}")
+            rows = []
+        if not rows:
+            st.info("No completed matches found.")
+        else:
+            df = pd.DataFrame(rows)
+            df["score"] = df["home_goals"].astype(str) + " - " + df["away_goals"].astype(str)
+            st.dataframe(
+                df[["date", "home", "score", "away", "game_id"]],
+                use_container_width=True, hide_index=True)
+            st.caption("Copy a game_id and paste into the Lineups tab to see the starting XI.")
+
+    with sub_tab:
+        try:
+            rows = api_client.fetch_standings(base, league)
+        except Exception as e:
+            st.error(f"Fetch failed: {e}")
+            rows = []
+        if not rows:
+            st.info("No standings yet (season hasn't started or no completed matches).")
+        else:
+            df = pd.DataFrame(rows)[
+                ["rank", "team", "played", "wins", "draws", "losses",
+                 "goals_for", "goals_against", "goal_diff", "points"]
+            ]
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    with sub_team:
+        try:
+            league_teams = api_client.fetch_league_teams(base, league)
+        except Exception as e:
+            st.error(f"Could not list teams: {e}")
+            league_teams = []
+        if not league_teams:
+            st.info("No teams available for this league yet.")
+        else:
+            team = st.selectbox("Team", league_teams, key="data_team_pick")
+            tc1, tc2 = st.columns([2, 1])
+            n_form = tc1.slider("Form window (matches)", 3, 20, 10, key="data_team_form_n")
+            n_lup = tc2.slider("Lineups to base prediction on", 3, 10, 5, key="data_team_lup_n")
+
+            # Form
+            try:
+                form = api_client.fetch_team_form(base, team, league, n=n_form)
+            except Exception as e:
+                st.error(f"Form fetch failed: {e}")
+                form = None
+            if form:
+                s = form["summary"]
+                k1, k2, k3, k4, k5 = st.columns(5)
+                k1.metric("Last " + str(s["played"]) + " played", s["played"])
+                k2.metric("W-D-L", f"{s['wins']}-{s['draws']}-{s['losses']}")
+                k3.metric("GF-GA", f"{s['goals_for']}-{s['goals_against']}")
+                k4.metric("Goal diff", s["goal_diff"])
+                k5.metric("Form (oldest→newest)", s["form"] or "—")
+                if form["matches"]:
+                    df = pd.DataFrame(form["matches"])
+                    df["score"] = df["team_goals"].astype(str) + "-" + df["opponent_goals"].astype(str)
+                    st.dataframe(
+                        df[["date", "venue", "opponent", "score", "result", "game_id"]],
+                        use_container_width=True, hide_index=True)
+
+            # Predicted XI (this also warms the lineups cache)
+            try:
+                pxi = api_client.fetch_predicted_xi(base, team, league, lookback=n_lup)
+            except Exception as e:
+                st.error(f"Predicted XI fetch failed: {e}")
+                pxi = None
+            if pxi and pxi.get("predicted_xi"):
+                st.markdown(f"### Predicted starting XI · {pxi['formation']} · "
+                            f"confidence: {pxi['confidence']}")
+                st.caption(pxi["method"])
+                buckets: dict[str, list] = {"GK": [], "DEF": [], "MID": [], "FW": []}
+                for p in pxi["predicted_xi"]:
+                    buckets.setdefault(p["bucket"], []).append(p)
+                xi_cols = st.columns(4)
+                for col, key in zip(xi_cols, ["GK", "DEF", "MID", "FW"]):
+                    col.markdown(f"**{key}**")
+                    for p in buckets[key]:
+                        col.markdown(
+                            f"`{p['position']:>4}` {p['name']}  "
+                            f"<span style='opacity:0.6'>· {p['start_freq']}</span>",
+                            unsafe_allow_html=True)
+
+            # Last N actual lineups (collapsed)
+            with st.expander("Show recent actual starting XIs"):
+                try:
+                    lups = api_client.fetch_team_lineups(base, team, league, n=n_lup)
+                except Exception as e:
+                    st.error(f"Lineups fetch failed: {e}")
+                    lups = None
+                if lups and lups.get("lineups"):
+                    for m in lups["lineups"]:
+                        st.markdown(f"**{m['date']} · vs {m['opponent']} ({m['venue']})**")
+                        df = pd.DataFrame(m["starting"])
+                        if not df.empty:
+                            st.dataframe(
+                                df[[c for c in ["number", "name", "position", "minutes"] if c in df.columns]],
+                                use_container_width=True, hide_index=True)
+
+    with sub_lup:
+        st.caption("FBref publishes lineups post-match. Pre-match XIs are not available here.")
+        gid = st.text_input("game_id (from Recent results)", key="data_lup_gid")
+        if gid:
+            try:
+                data = api_client.fetch_lineup(base, gid.strip(), league)
+            except Exception as e:
+                st.error(f"Fetch failed: {e}")
+                data = None
+            if data:
+                c1, c2 = st.columns(2)
+                for col, side in [(c1, "home"), (c2, "away")]:
+                    block = data.get(side)
+                    if not block:
+                        continue
+                    col.markdown(f"### {block['team']}")
+                    col.markdown("**Starting XI**")
+                    starters = pd.DataFrame(block["starting"])
+                    if not starters.empty:
+                        col.dataframe(
+                            starters[[c for c in ["number", "name", "position", "minutes"] if c in starters.columns]],
+                            use_container_width=True, hide_index=True)
+                    col.markdown("**Bench**")
+                    bench = pd.DataFrame(block["bench"])
+                    if not bench.empty:
+                        col.dataframe(
+                            bench[[c for c in ["number", "name", "position", "minutes"] if c in bench.columns]],
+                            use_container_width=True, hide_index=True)
+
+
 # ============================================================================
 # Dispatch
 # ============================================================================
@@ -1277,6 +1445,9 @@ with tab_league:
 
 with tab_cup:
     render_tournament()
+
+with tab_data:
+    render_data()
 
 
 # ============================================================================

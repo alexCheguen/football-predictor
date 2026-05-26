@@ -11,3 +11,6 @@ requests
 joblib
 pyarrow
 soccerdata
+fastapi
+uvicorn[standard]
+httpx
