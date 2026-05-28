@@ -23,6 +23,7 @@ from src.tournament import (
     predict_modal_bracket, sample_one_tournament, simulate_knockout, simulate_league,
     top_n_by_elo,
 )
+from src.unlock import verify_token
 import app_api_client as api_client
 
 st.set_page_config(page_title="Football Predictor", layout="wide",
@@ -388,18 +389,16 @@ st.markdown(_CUSTOM_CSS, unsafe_allow_html=True)
 _HERO_HTML = """
 <div class="hero">
   <div class="hero-content">
-    <h1>Football Predictor</h1>
+    <h1>WC2026 Picks</h1>
     <p class="hero-subtitle">
-      Statistical match and tournament predictions across the top-5 European
-      leagues and every international team — built on a stacked Elo +
-      Dixon-Coles + gradient-boosted ensemble. Tournament mode covers the
-      <strong style="color:#fbbf24">2026 FIFA World Cup</strong> with the
-      official draw, real fixture dates, and squad-strength priors.
+      EV-optimal predictions for your <strong style="color:#fbbf24">2026 World Cup
+      office pool</strong> — tuned to your contest's exact scoring rules.
+      Calibrated stacked ensemble (Dixon-Coles 1997, Pi-rating, gradient-boosted ML).
+      Free preview below; full tournament unlock for £7.
     </p>
     <div class="hero-stats">
-      <span class="stat-pill">Stacked ML ensemble</span>
-      <span class="stat-pill">RPS 0.173 internationals</span>
-      <span class="stat-pill">RPS 0.198 leagues</span>
+      <span class="stat-pill">Calibrated ensemble</span>
+      <span class="stat-pill">RPS 0.173 — bookmaker-level</span>
       <span class="stat-pill gold">WC 2026 ready</span>
     </div>
   </div>
@@ -491,10 +490,37 @@ if st.sidebar.button("Update now",
 st.sidebar.divider()
 
 # ============================================================================
+# Paywall gating
+# ============================================================================
+def _is_unlocked() -> bool:
+    """True if the user has presented a valid HMAC unlock token, or already
+    verified one earlier in this session. No customer email is ever stored."""
+    if st.session_state.get("unlocked"):
+        return True
+    token = st.query_params.get("token")
+    if not token:
+        return False
+    payload = verify_token(token)
+    if payload:
+        st.session_state["unlocked"] = True
+        return True
+    return False
+
+
+def _stripe_payment_link() -> str:
+    """Read the Stripe Payment Link from Streamlit secrets. Returns '#' as a
+    placeholder before Stripe is fully wired up (so the button still renders)."""
+    try:
+        return st.secrets["STRIPE_PAYMENT_LINK"]
+    except Exception:
+        return "#"
+
+
+# ============================================================================
 # Tabs
 # ============================================================================
-tab_match, tab_league, tab_cup, tab_data = st.tabs(
-    ["Single match", "League season", "Tournament", "Live data"])
+tab_cup, tab_match, tab_more = st.tabs(
+    ["🏆 WC2026 Bracket", "Quick match check", "More ▾"])
 
 
 # ----------------------------------------------------------------------------
@@ -935,10 +961,137 @@ def _render_bracket(rounds: list[list[dict]], champion: str | None) -> None:
         )
 
 
+def _render_paywall_teaser():
+    """Free-tier teaser shown when the user hasn't unlocked the tournament.
+
+    Shows: the pitch, 3 featured Matchday-1 predictions, the full MD1 table
+    as a dataframe, and a locked-bracket notice + Stripe CTA. Designed to
+    prove the model is real without giving away the WC-pool-winning content.
+    """
+    from src.schedules import WC_2026_GROUP_FIXTURES
+    from src.real_groups import ALIASES
+    from src.tournament import best_ev_score
+    from src.wc26_strength import apply_wc_prior_to_prediction
+
+    bundle = get_bundle("internationals")
+    known = set(bundle.teams)
+
+    # First 24 entries of WC_2026_GROUP_FIXTURES = Matchday 1
+    md1_raw = WC_2026_GROUP_FIXTURES[:24]
+    md1 = [(date, ALIASES.get(h, h), ALIASES.get(a, a))
+           for (date, h, a) in md1_raw
+           if ALIASES.get(h, h) in known and ALIASES.get(a, a) in known]
+
+    # Hero pitch
+    st.markdown(
+        "### Free preview · Matchday 1 predictions\n\n"
+        "Below: every Matchday 1 fixture with the model's probability and "
+        "EV-optimal scoreline (default 3pts exact / 1pt result scoring). "
+        "Unlock the full tournament — all 104 matches, knockout bracket, "
+        "Monte Carlo sim, market-prior tuning — for **£7**."
+    )
+
+    # Three featured matches — full match cards
+    featured_pairs = [
+        ("England", "Croatia"),
+        ("Brazil", "Morocco"),
+        ("Spain", "Cape Verde"),
+    ]
+    featured = [(h, a) for (h, a) in featured_pairs if h in known and a in known]
+    if featured:
+        st.markdown("#### Featured Matchday 1 picks")
+        cols = st.columns(len(featured))
+        for col, (h, a) in zip(cols, featured):
+            pred = bundle.predict(h, a, neutral=True)
+            pred = apply_wc_prior_to_prediction(pred, h, a, blend=0.30)
+            hg, ag, _, _ = best_ev_score(pred)
+            with col:
+                st.markdown(f"**{flagged(h)}** vs **{flagged(a)}**")
+                k1, k2 = st.columns(2)
+                k1.metric("Predicted", f"{hg}–{ag}")
+                k2.metric(f"{h[:6]} win", f"{pred['outcome']['H']*100:.0f}%")
+                st.caption(
+                    f"D {pred['outcome']['D']*100:.0f}% · "
+                    f"{a[:6]} {pred['outcome']['A']*100:.0f}% · "
+                    f"xG {pred['lambda_home']:.1f}–{pred['lambda_away']:.1f}"
+                )
+
+    # Full MD1 table
+    st.markdown("#### All 24 Matchday 1 fixtures")
+    rows = []
+    for (date, h, a) in md1:
+        pred = bundle.predict(h, a, neutral=True)
+        pred = apply_wc_prior_to_prediction(pred, h, a, blend=0.30)
+        hg, ag, _, _ = best_ev_score(pred)
+        rows.append({
+            "Date":   pd.Timestamp(date).strftime("%d %b"),
+            "Home":   flagged(h),
+            "Pick":   f"{hg}–{ag}",
+            "Away":   flagged(a),
+            "H %":    f"{pred['outcome']['H']*100:.0f}%",
+            "D %":    f"{pred['outcome']['D']*100:.0f}%",
+            "A %":    f"{pred['outcome']['A']*100:.0f}%",
+        })
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+    # Locked content notice + Stripe CTA
+    st.divider()
+    st.markdown(
+        """
+        <div style="background:linear-gradient(135deg,#0e2a3f 0%, #0d4d3a 100%);
+                    border:1px solid rgba(16,185,129,0.35); border-radius:16px;
+                    padding:1.8rem 2rem; text-align:center; margin: 1rem 0;">
+          <div style="font-size:0.85rem; color:#fbbf24; letter-spacing:0.1em;
+                      text-transform:uppercase; font-weight:700;">🔒 Locked</div>
+          <h3 style="margin:0.5rem 0 0.8rem; color:#f8fafc;">
+            Matchday 2 &amp; 3 · Knockout bracket · Champion prediction
+          </h3>
+          <p style="color:#cbd5e1; margin:0 0 1.3rem; line-height:1.6;">
+            Unlock the full tournament — 80 more fixtures, the bracket cascade
+            through to the Final, Monte Carlo simulator (stage % for every team),
+            EV scoring tuner for your pool's exact rules, and daily-refreshed
+            predictions throughout the tournament.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    pay_link = _stripe_payment_link()
+    cta_disabled = pay_link == "#"
+    cols = st.columns([1, 2, 1])
+    with cols[1]:
+        if cta_disabled:
+            st.info(
+                "🚧 Checkout opens Monday June 1. "
+                "Bookmark this page or drop your email below to be notified."
+            )
+        else:
+            st.markdown(
+                f'<a href="{pay_link}" target="_blank" style="text-decoration:none;">'
+                f'<div style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);'
+                f'color:white; padding:1rem 2rem; border-radius:12px; font-weight:700;'
+                f'font-size:1.15rem; text-align:center; cursor:pointer;'
+                f'box-shadow:0 6px 18px rgba(16,185,129,0.4);">'
+                f'Unlock full tournament — £7'
+                f'</div></a>',
+                unsafe_allow_html=True,
+            )
+        st.caption(
+            "Refunds before kickoff (Jun 11). One-time payment, no subscription. "
+            "Powered by Stripe."
+        )
+
+
 def render_tournament():
     if "internationals" not in available_scopes:
         st.warning("Internationals model not available.")
         return
+
+    if not _is_unlocked():
+        _render_paywall_teaser()
+        return
+
     bundle = get_bundle("internationals")
     all_teams = sorted(bundle.teams)
 
@@ -1449,17 +1602,18 @@ def render_data():
 # ============================================================================
 # Dispatch
 # ============================================================================
-with tab_match:
-    render_match()
-
-with tab_league:
-    render_league()
-
 with tab_cup:
     render_tournament()
 
-with tab_data:
-    render_data()
+with tab_match:
+    render_match()
+
+with tab_more:
+    sub_league, sub_data = st.tabs(["League season", "Live data"])
+    with sub_league:
+        render_league()
+    with sub_data:
+        render_data()
 
 
 # ============================================================================
