@@ -508,12 +508,17 @@ def _is_unlocked() -> bool:
 
 
 def _stripe_payment_link() -> str:
-    """Read the Stripe Payment Link from Streamlit secrets. Returns '#' as a
-    placeholder before Stripe is fully wired up (so the button still renders)."""
-    try:
-        return st.secrets["STRIPE_PAYMENT_LINK"]
-    except Exception:
-        return "#"
+    """Read the Stripe Payment Link from env (Render) or Streamlit secrets
+    (Streamlit Cloud). Returns '#' as a placeholder before Stripe is wired up
+    (so the button still renders the 'opens Monday' notice)."""
+    import os
+    val = os.environ.get("STRIPE_PAYMENT_LINK")
+    if not val:
+        try:
+            val = st.secrets["STRIPE_PAYMENT_LINK"]
+        except Exception:
+            val = None
+    return val or "#"
 
 
 # ============================================================================
