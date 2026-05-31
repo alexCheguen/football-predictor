@@ -452,6 +452,13 @@ def best_ev_score(pred: dict, exact_pts: float = 3.0, result_pts: float = 1.0,
         for j in range(n_cols):
             gd_totals[i - j] = gd_totals.get(i - j, 0.0) + float(sm[i, j])
 
+    # Hitting the exact score also nails the result AND the goal difference, so
+    # the exact cell must earn at least result_pts + gd_pts. Without this, a
+    # scheme where those outweigh exact_pts (e.g. result-only, or a big GD bonus)
+    # rewards picking an impossible scoreline like 8-7: a far-flung cell captures
+    # the result/GD probability mass while its own p_exact is ~0, which the
+    # `(p_result - p_exact)` / `(p_same_gd - p_exact)` terms then maximise.
+    eff_exact = max(exact_pts, result_pts + gd_pts)
     best = (1, 1, 0.0, -1.0)
     for i in range(n_rows):
         for j in range(n_cols):
@@ -463,7 +470,7 @@ def best_ev_score(pred: dict, exact_pts: float = 3.0, result_pts: float = 1.0,
             else:
                 p_result = outcome["D"]
             p_same_gd = gd_totals.get(i - j, 0.0)
-            ev = (exact_pts * p_exact
+            ev = (eff_exact * p_exact
                   + result_pts * (p_result - p_exact)
                   + gd_pts * (p_same_gd - p_exact))
             # Optional draw bonus: bias picks toward draws to match real-world

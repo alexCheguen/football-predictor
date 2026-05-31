@@ -128,6 +128,9 @@ Contact: {_support_email()}
   your unlock link.
 - **Payment details**, handled entirely by Stripe. We never see or store your
   card number.
+- **Optional sign-up email.** If you tick the box to get free picks and a
+  kickoff reminder, we use your email only to send those messages. It's
+  consent-based and you can opt out any time by emailing us.
 
 We do **not** run our own customer database. We don't store your email on our
 own servers, it passes through our email-sending step (Resend) only long
@@ -140,7 +143,8 @@ email). That's it.
 
 ## 3. Lawful basis (UK GDPR)
 Performance of our contract with you (Article 6(1)(b)), we need your email to
-deliver what you paid for.
+deliver what you paid for. For the optional free-picks sign-up, the basis is
+your consent (Article 6(1)(a)), which you can withdraw at any time.
 
 ## 4. Who processes it for us
 - **Stripe**, payment processing. Stripe is the controller of your payment

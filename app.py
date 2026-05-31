@@ -658,6 +658,52 @@ def _home_url() -> str:
     return f"{_app_base_url()}/?token={tok}" if tok else f"{_app_base_url()}/"
 
 
+def _resend_key() -> str | None:
+    key = os.environ.get("RESEND_API_KEY")
+    if not key:
+        try:
+            key = st.secrets["RESEND_API_KEY"]
+        except Exception:
+            key = None
+    return key or None
+
+
+def _capture_signup(email: str) -> bool:
+    """Email a free-picks confirmation to a non-buyer who opts in, bcc'ing the
+    operator so their inbox doubles as the list to remind before kickoff.
+    Returns False (handled gracefully) if Resend isn't configured or errors."""
+    key = _resend_key()
+    if not key:
+        return False
+    link = _app_base_url() + "/"
+    html = (
+        '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;'
+        'background:#1a2030;color:#f1f5f9;border-radius:14px;padding:28px;">'
+        '<h2 style="color:#3b82f6;margin:0 0 12px;">Your free WC26 picks</h2>'
+        "<p style=\"line-height:1.6;\">Thanks for signing up. Here are the free "
+        f'Matchday 1 predictions: <a href="{link}" style="color:#60a5fa;">{link}</a></p>'
+        "<p style=\"line-height:1.6;\">We'll send one reminder before the tournament "
+        'kicks off on 11 June, with a link to unlock the full bracket for £7.</p>'
+        '<p style="font-size:12px;color:#64748b;margin-top:18px;">You\'re getting this '
+        'because you asked for free picks at wcpicks26.app. Not interested? Just ignore '
+        'this email and we won\'t send more.</p></div>'
+    )
+    try:
+        import requests
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"from": "WC26 Picks <unlock@wcpicks26.app>", "to": email,
+                  "bcc": "support@wcpicks26.app",
+                  "subject": "Your free WC26 Matchday 1 picks",
+                  "html": html, "reply_to": "support@wcpicks26.app"},
+            timeout=10,
+        )
+        return r.ok
+    except Exception:
+        return False
+
+
 # ============================================================================
 # Tabs
 # ============================================================================
@@ -1196,15 +1242,84 @@ def _render_paywall_teaser():
            for (date, h, a) in md1_raw
            if ALIASES.get(h, h) in known and ALIASES.get(a, a) in known]
 
-    # Hero pitch
+    # ---- How it works (3 steps) ----
     st.markdown(
-        "### Free preview: Matchday 1 predictions\n\n"
-        "Every Matchday 1 fixture below shows the model's win probability and the "
-        "score it reckons is most likely to win you points (under standard "
-        "3-points-exact, 1-point-result scoring). The full tournament covers all "
-        "104 matches, the knockout bracket, the predicted champion and the "
-        "simulator. That's **£7**."
+        """
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+                    gap:0.8rem; margin:0.4rem 0 1.4rem;">
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+                      border-radius:12px; padding:1rem 1.1rem;">
+            <div style="color:#3b82f6; font-weight:800; font-size:1.3rem;">1</div>
+            <div style="color:#f1f5f9; font-weight:700; margin:0.2rem 0 0.2rem;">We predict every match</div>
+            <div style="color:#94a3b8; font-size:0.85rem; line-height:1.4;">
+              A calibrated model gives the most likely scoreline for all 104 games.</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+                      border-radius:12px; padding:1rem 1.1rem;">
+            <div style="color:#e11d48; font-weight:800; font-size:1.3rem;">2</div>
+            <div style="color:#f1f5f9; font-weight:700; margin:0.2rem 0 0.2rem;">Set to your pool's rules</div>
+            <div style="color:#94a3b8; font-size:0.85rem; line-height:1.4;">
+              Tell it how your sweepstake scores points. Every pick re-optimises to suit.</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+                      border-radius:12px; padding:1rem 1.1rem;">
+            <div style="color:#f59e0b; font-weight:800; font-size:1.3rem;">3</div>
+            <div style="color:#f1f5f9; font-weight:700; margin:0.2rem 0 0.2rem;">You make smarter picks</div>
+            <div style="color:#94a3b8; font-size:0.85rem; line-height:1.4;">
+              Copy them into your office or family pool and stop guessing.</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+
+    # ---- USP demo: same match, different pool rules, different pick ----
+    from src.tournament import best_ev_score as _bev
+    demo_h, demo_a = "England", "Croatia"
+    if demo_h in known and demo_a in known:
+        dp = bundle.predict(demo_h, demo_a, neutral=True)
+        dp = apply_wc_prior_to_prediction(dp, demo_h, demo_a, blend=0.30)
+        demo = [
+            ("3 pts exact, 1 pt result", dict(exact_pts=3, result_pts=1, gd_pts=0, draw_bonus=0.15)),
+            ("Bonus for goal difference", dict(exact_pts=3, result_pts=1, gd_pts=2, draw_bonus=0.15)),
+            ("Draw-friendly pool", dict(exact_pts=3, result_pts=1, gd_pts=0, draw_bonus=0.5)),
+        ]
+        demo_rows = ""
+        for label, sc in demo:
+            hg, ag, _, _ = _bev(dp, **sc)
+            demo_rows += (
+                f'<tr><td style="padding:7px 10px; color:#cbd5e1;">{label}</td>'
+                f'<td style="padding:7px 10px; text-align:right; font-family:JetBrains Mono,monospace;'
+                f'font-weight:700; color:#f8fafc;">{hg}–{ag}</td></tr>'
+            )
+        st.markdown(
+            f"""
+            <div style="background:linear-gradient(135deg,#11224a 0%,#1a2030 100%);
+                        border:1px solid rgba(37,99,235,0.3); border-radius:14px;
+                        padding:1.1rem 1.3rem; margin-bottom:1.4rem;">
+              <div style="color:#f8fafc; font-weight:700; margin-bottom:0.2rem;">
+                Why "your pool's rules" matters</div>
+              <div style="color:#94a3b8; font-size:0.85rem; margin-bottom:0.7rem;">
+                The smartest pick for the <b>same match</b> changes with how your pool scores.
+                Here's {_team_code_label(demo_h)} vs {_team_code_label(demo_a)}:</div>
+              <table style="width:100%; border-collapse:collapse; font-size:0.88rem;">
+                <thead><tr>
+                  <th style="text-align:left; padding:6px 10px; color:#64748b; font-size:0.72rem;
+                      text-transform:uppercase; letter-spacing:0.04em;">Your pool's scoring</th>
+                  <th style="text-align:right; padding:6px 10px; color:#64748b; font-size:0.72rem;
+                      text-transform:uppercase; letter-spacing:0.04em;">Our pick</th>
+                </tr></thead>
+                <tbody>{demo_rows}</tbody>
+              </table>
+              <div style="color:#64748b; font-size:0.78rem; margin-top:0.6rem;">
+                The full version does this for all 104 matches, set to your exact rules.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.caption("Below: every Matchday 1 fixture. Click any row to open its full "
+               "breakdown. The full tournament unlock is **£7**.")
 
     # Three featured matches — full match cards
     from src.flags import flag_img_html
@@ -1310,6 +1425,29 @@ def _render_paywall_teaser():
             "Refunds before kickoff (Jun 11). One-time payment, no subscription. "
             "Powered by Stripe."
         )
+
+    # ---- Email capture for people not ready to buy ----
+    st.divider()
+    st.markdown("#### Not ready to buy?")
+    st.caption("Get the free Matchday 1 picks emailed to you, plus one reminder "
+               "before the tournament starts.")
+    with st.form("signup_form", clear_on_submit=True):
+        fc1, fc2 = st.columns([3, 1])
+        signup_email = fc1.text_input("Email", placeholder="you@email.com",
+                                      label_visibility="collapsed", key="signup_email")
+        submitted = fc2.form_submit_button("Send picks", use_container_width=True)
+        consent = st.checkbox(
+            "Email me the free picks and a kickoff reminder. I've read the "
+            "[Privacy Policy](?page=privacy).", key="signup_consent")
+        if submitted:
+            if not signup_email or "@" not in signup_email or "." not in signup_email:
+                st.warning("Please enter a valid email address.")
+            elif not consent:
+                st.warning("Please tick the consent box first.")
+            elif _capture_signup(signup_email.strip()):
+                st.success("Done. Check your inbox for the free picks.")
+            else:
+                st.success("Thanks. We'll be in touch before kickoff.")
 
 
 def _free_md1_pairs() -> set[tuple[str, str]]:
