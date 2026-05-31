@@ -287,12 +287,17 @@ section[data-testid="stSidebar"] h1 {
 .block-container { padding-top: 1.5rem !important; }
 
 /* ----- Group stage cards ----- */
+.gc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
 .group-card {
     background: linear-gradient(180deg, rgba(26,32,48,0.88) 0%, rgba(16,20,29,0.96) 100%);
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 14px;
     padding: 0.9rem 1rem 1rem;
-    margin-bottom: 1.2rem;
     box-shadow: 0 2px 14px rgba(0,0,0,0.18);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
@@ -414,6 +419,8 @@ section[data-testid="stSidebar"] h1 {
     transform: scale(1.03);
     box-shadow: 0 6px 18px rgba(37,99,235,0.25);
 }
+.bm-link { text-decoration: none; display: block; }
+.bm-link:hover .bracket-match { border-color: rgba(37,99,235,0.5); }
 .bracket-match.pens { border-left-color: rgba(245,158,11,0.7); }
 .bracket-match.played { border-left-color: rgba(34,211,238,0.7); }
 .bracket-match .bm-side {
@@ -959,14 +966,6 @@ def _render_group_cards(fixtures: list[dict], standings: list[list[tuple]],
     Grid: 3 columns when there are 6+ groups, 4 when 4, else 2.
     """
     n_groups = len(groups)
-    if n_groups >= 6:
-        cols_per_row = 3
-    elif n_groups == 4:
-        cols_per_row = 4
-    elif n_groups in (2, 3):
-        cols_per_row = n_groups
-    else:
-        cols_per_row = 2
 
     # Best-3rds qualifiers (highlighted yellow) if format uses them
     best_thirds_set: set[str] = set()
@@ -1039,15 +1038,11 @@ def _render_group_cards(fixtures: list[dict], standings: list[list[tuple]],
             f'</div>'
         )
 
-    # Render in rows of `cols_per_row`
-    for row_start in range(0, n_groups, cols_per_row):
-        cols = st.columns(cols_per_row)
-        for col_idx in range(cols_per_row):
-            gi = row_start + col_idx
-            if gi >= n_groups:
-                break
-            with cols[col_idx]:
-                st.markdown(card_html(gi), unsafe_allow_html=True)
+    # One responsive CSS grid: the browser auto-wraps cards to fit the screen
+    # (1 column on a phone, 2-3 on tablet, 3-4 on desktop). Far better on mobile
+    # than fixed st.columns, which just squeeze side-by-side.
+    all_cards = "".join(card_html(gi) for gi in range(n_groups))
+    st.markdown(f'<div class="gc-grid">{all_cards}</div>', unsafe_allow_html=True)
 
     # Legend
     legend_parts = []
@@ -1087,7 +1082,9 @@ def _render_bracket(rounds: list[list[dict]], champion: str | None) -> None:
                 meta = f'<div class="bm-meta">ET / pens → {_html.escape(winner)}</div>'
             elif played:
                 meta = '<div class="bm-meta">✓ played</div>'
+            url = _match_url(m["home"], m["away"])
             match_html.append(
+                f'<a class="bm-link" href="{url}" title="Analyse this match">'
                 f'<div class="{" ".join(classes)}">'
                 f'<div class="bm-side {home_class}">'
                 f'<span class="team">{_team_label(m["home"])}</span>'
@@ -1096,7 +1093,7 @@ def _render_bracket(rounds: list[list[dict]], champion: str | None) -> None:
                 f'<span class="team">{_team_label(m["away"])}</span>'
                 f'<span class="gs">{ag}</span></div>'
                 f'{meta}'
-                f'</div>'
+                f'</div></a>'
             )
         round_cols_html.append(
             f'<div class="bracket-round">'
