@@ -35,8 +35,16 @@ st.set_page_config(page_title="WC2026 Picks", layout="wide",
 # main app + paywall never run for those URLs. Must come before any heavy work.
 _legal_page = st.query_params.get("page")
 if _legal_page:
-    from src.legal import render_legal_page
-    if render_legal_page(_legal_page):
+    _did_legal = False
+    try:
+        from src.legal import render_legal_page
+        _did_legal = render_legal_page(_legal_page)
+    except Exception:
+        _did_legal = False
+    # st.stop() raises a StopException (a subclass of Exception), so it MUST be
+    # outside the try above or it would be swallowed and the main app would also
+    # render underneath the legal page.
+    if _did_legal:
         st.stop()
 
 # ============================================================================
@@ -610,7 +618,11 @@ def _is_unlocked() -> bool:
     token = st.query_params.get("token")
     if not token:
         return False
-    payload = verify_token(token)
+    try:
+        payload = verify_token(token)
+    except Exception:
+        # e.g. secret misconfigured — fail closed (locked), never crash the page.
+        return False
     if payload:
         st.session_state["unlocked"] = True
         return True
@@ -2089,19 +2101,30 @@ def render_data():
 # ============================================================================
 # Dispatch
 # ============================================================================
+def _safe_render(fn) -> None:
+    """Run a tab renderer, but contain any unexpected error to a friendly
+    message instead of dumping a Python traceback to a paying customer."""
+    try:
+        fn()
+    except Exception:
+        st.error("Something went wrong loading this section. Please refresh the "
+                 "page. If it keeps happening, email support@wcpicks26.app.")
+        import traceback as _tb
+        print(_tb.format_exc())   # still logged server-side for debugging
+
 with tab_cup:
-    render_tournament()
+    _safe_render(render_tournament)
 
 with tab_match:
-    render_match()
+    _safe_render(render_match)
 
 if tab_more is not None:
     with tab_more:
         sub_league, sub_data = st.tabs(["League season", "Live data"])
         with sub_league:
-            render_league()
+            _safe_render(render_league)
         with sub_data:
-            render_data()
+            _safe_render(render_data)
 
 
 # ============================================================================
