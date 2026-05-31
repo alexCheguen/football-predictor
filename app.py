@@ -476,15 +476,16 @@ _HERO_HTML = """
   <div class="hero-content">
     <h1>WC2026 Picks</h1>
     <p class="hero-subtitle">
-      Smart score predictions for your <strong style="color:#f59e0b">2026 World Cup
-      office pool</strong> — the pick most likely to win you points, tuned to your
-      contest's scoring rules. Calibrated model (Dixon-Coles, Pi-rating, machine
-      learning). Free preview below; full tournament unlock for £7.
+      Score predictions for your <strong style="color:#f59e0b">2026 World Cup
+      office pool</strong>. For every match it gives the score most likely to win
+      you points, set to whatever rules your contest uses. Built on a calibrated
+      statistical model (Dixon-Coles, Pi-rating, machine learning). Try the free
+      preview below, or unlock the whole tournament for £7.
     </p>
     <div class="hero-stats">
       <span class="stat-pill">Calibrated model</span>
-      <span class="stat-pill red">RPS 0.173 — bookmaker-level</span>
-      <span class="stat-pill gold">WC 2026 ready</span>
+      <span class="stat-pill red">Bookmaker-level accuracy</span>
+      <span class="stat-pill gold">2026 World Cup ready</span>
     </div>
   </div>
 </div>
@@ -494,8 +495,8 @@ st.markdown(_HERO_HTML, unsafe_allow_html=True)
 # ============================================================================
 # Sidebar (shared across tabs)
 # ============================================================================
-st.sidebar.markdown("# ⚽ WC2026 Picks")
-st.sidebar.caption("Calibrated model · refreshed daily")
+st.sidebar.markdown("# WC2026 Picks")
+st.sidebar.caption("Calibrated model, refreshed daily")
 
 # WC_ONLY: the launch product is World-Cup-focused. Loading both the leagues
 # and internationals ML bundles at once blows past Render's 512MB free tier
@@ -577,7 +578,7 @@ st.sidebar.divider()
 # deployments are refreshed by the daily GitHub Action (which retrains and
 # commits new models, triggering an auto-deploy).
 if IS_HOSTED:
-    st.sidebar.caption("🔄 Models refresh automatically every day.")
+    st.sidebar.caption("Models refresh automatically every day.")
 else:
     if st.sidebar.button("Update now",
                          help="Re-download latest match data and retrain (~30 sec)"):
@@ -662,11 +663,11 @@ def _home_url() -> str:
 if WC_ONLY:
     # Only the WC tournament + a national-team match checker. The League/Live
     # tab is hidden so the leagues ML model never loads (keeps us under 512MB).
-    tab_cup, tab_match = st.tabs(["🏆 WC2026 Bracket", "Quick match check"])
+    tab_cup, tab_match = st.tabs(["World Cup bracket", "Quick match check"])
     tab_more = None
 else:
     tab_cup, tab_match, tab_more = st.tabs(
-        ["🏆 WC2026 Bracket", "Quick match check", "More ▾"])
+        ["World Cup bracket", "Quick match check", "More"])
 
 
 # ----------------------------------------------------------------------------
@@ -729,8 +730,8 @@ def render_match():
     home_disp = fmt_team(home)
     away_disp = fmt_team(away)
     if wc_applied:
-        st.caption("Blended with the WC2026 squad-strength prior — matches the "
-                   "tournament view. (Both teams are at WC2026.)")
+        st.caption("Both teams are at the 2026 World Cup, so this blends in the "
+                   "squad-strength prior and matches the tournament view.")
 
     # Show club crests for leagues scope when logos are available
     if scope == "leagues" and has_logos():
@@ -948,7 +949,7 @@ def _team_label(team: str, height: int = 12) -> str:
         if data.get("value_m") is not None:
             bits.append(f"€{data['value_m']}m squad value")
         if bits:
-            tip = _html.escape(f"{team} — " + " · ".join(bits))
+            tip = _html.escape(f"{team} · " + " · ".join(bits))
             return f'<span class="team-hc" title="{tip}">{img}{name}</span>'
     return f"{img}{name}"
 
@@ -962,7 +963,7 @@ def _team_hover_title(team: str) -> str:
         bits.append(f"squad rank #{data['rank']}")
     if data.get("odds") is not None:
         bits.append(f"{data['odds']:g} to win outright")
-    suffix = (" — " + " · ".join(bits)) if bits else ""
+    suffix = (" · " + " · ".join(bits)) if bits else ""
     return _html.escape(f"{team}{suffix}")
 
 
@@ -1071,7 +1072,7 @@ def _render_group_cards(fixtures: list[dict], standings: list[list[tuple]],
             f'<th class="gd-col">GD</th><th class="pts-col">Pts</th>'
             f'</tr></thead><tbody>{"".join(rows_html)}</tbody></table>'
             f'<div class="gc-fixtures-label">Predicted results '
-            f'<span style="opacity:0.6">· tap to analyse</span></div>'
+            f'<span style="opacity:0.6">(tap to analyse)</span></div>'
             f'<div class="gc-fixtures">{"".join(fx_html)}</div>'
             f'</div>'
         )
@@ -1174,13 +1175,13 @@ def _render_paywall_teaser():
     # think the purchase failed when they still see the paywall.
     if st.query_params.get("session_id"):
         st.success(
-            "✅ **Thanks for your purchase!** Your unlock link is on its way to "
-            "your email — it usually arrives within a minute (check spam if not). "
-            "Click the link in that email to open the full tournament. "
-            "You can close this tab."
+            "**Thanks for your purchase.** Your unlock link is on its way to your "
+            "email and usually arrives within a minute (check spam if it doesn't). "
+            "Click the link in that email to open the full tournament, then you can "
+            "close this tab."
         )
         st.caption(
-            "Didn't get it after a few minutes? Email support@wcpicks26.app and "
+            "Still nothing after a few minutes? Email support@wcpicks26.app and "
             "we'll sort it out."
         )
         st.divider()
@@ -1196,12 +1197,12 @@ def _render_paywall_teaser():
 
     # Hero pitch
     st.markdown(
-        "### Free preview · Matchday 1 predictions\n\n"
-        "Below: every Matchday 1 fixture with the model's win probability and "
-        "its smartest score pick (the score most likely to win you points under "
-        "standard 3pts-exact / 1pt-result scoring). "
-        "Unlock the full tournament — all 104 matches, knockout bracket, "
-        "champion prediction, and tournament simulator — for **£7**."
+        "### Free preview: Matchday 1 predictions\n\n"
+        "Every Matchday 1 fixture below shows the model's win probability and the "
+        "score it reckons is most likely to win you points (under standard "
+        "3-points-exact, 1-point-result scoring). The full tournament covers all "
+        "104 matches, the knockout bracket, the predicted champion and the "
+        "simulator. That's **£7**."
     )
 
     # Three featured matches — full match cards
@@ -1236,8 +1237,8 @@ def _render_paywall_teaser():
 
     # Full MD1 table — each row links to its full analytics (free for MD1)
     st.markdown("#### All 24 Matchday 1 fixtures")
-    st.caption("👉 Click **Analyse** on any row for the full breakdown — "
-               "probabilities, top scorelines, and the scoreline heatmap.")
+    st.caption("Click the Analyse link on any row to open its full breakdown: "
+               "win probabilities, the likeliest scorelines, and a heatmap.")
     rows = []
     for (date, h, a) in md1:
         pred = bundle.predict(h, a, neutral=True)
@@ -1257,7 +1258,7 @@ def _render_paywall_teaser():
         pd.DataFrame(rows), hide_index=True, use_container_width=True,
         column_config={
             "Analyse": st.column_config.LinkColumn(
-                "Analyse", display_text="🔍 Analyse", width="small")
+                "Analyse", display_text="Analyse", width="small")
         },
     )
 
@@ -1269,15 +1270,15 @@ def _render_paywall_teaser():
                     border:1px solid rgba(37,99,235,0.35); border-radius:16px;
                     padding:1.8rem 2rem; text-align:center; margin: 1rem 0;">
           <div style="font-size:0.85rem; color:#f59e0b; letter-spacing:0.1em;
-                      text-transform:uppercase; font-weight:700;">🔒 Locked</div>
+                      text-transform:uppercase; font-weight:700;">Locked</div>
           <h3 style="margin:0.5rem 0 0.8rem; color:#f8fafc;">
-            Matchday 2 &amp; 3 · Knockout bracket · Champion prediction
+            Matchdays 2 and 3, the knockout bracket, and the predicted champion
           </h3>
           <p style="color:#cbd5e1; margin:0 0 1.3rem; line-height:1.6;">
-            Unlock the full tournament — 80 more fixtures, the bracket all the
-            way to the Final, your team's chances of winning the cup (tournament
-            simulator), score picks tuned to your pool's scoring rules, and
-            predictions that refresh daily through the tournament.
+            The full unlock adds the other 80 group fixtures and the whole
+            knockout bracket through to the Final. You also get each team's
+            chances of winning the cup, score picks set to your pool's own
+            scoring, and predictions that refresh every day of the tournament.
           </p>
         </div>
         """,
@@ -1290,8 +1291,8 @@ def _render_paywall_teaser():
     with cols[1]:
         if cta_disabled:
             st.info(
-                "🚧 Checkout opens Monday June 1. "
-                "Bookmark this page or drop your email below to be notified."
+                "Checkout opens Monday June 1. Bookmark this page so you can "
+                "come back to it."
             )
         else:
             st.markdown(
@@ -1300,7 +1301,7 @@ def _render_paywall_teaser():
                 f'color:white; padding:1rem 2rem; border-radius:12px; font-weight:700;'
                 f'font-size:1.15rem; text-align:center; cursor:pointer;'
                 f'box-shadow:0 6px 18px rgba(37,99,235,0.4);">'
-                f'Unlock full tournament — £7'
+                f'Unlock the full tournament · £7'
                 f'</div></a>',
                 unsafe_allow_html=True,
             )
@@ -1348,8 +1349,8 @@ def _render_match_detail(home: str, away: str, wc_blend: float = 0.30) -> None:
         f"<span style='opacity:0.5;font-weight:500'>vs</span> "
         f"{flag_img_html(away, 26)} {_html.escape(away)}</h2>",
         unsafe_allow_html=True)
-    st.caption("Neutral venue · blended with current squad-strength prior. "
-               "World Cup 2026 group stage.")
+    st.caption("Played at a neutral venue, with the squad-strength prior "
+               "blended in. 2026 World Cup group stage.")
 
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric(f"{home} win", f"{pred['outcome']['H']*100:.1f}%")
@@ -1646,7 +1647,7 @@ def render_tournament():
                     st.dataframe(
                         pd.DataFrame(rows), hide_index=True, use_container_width=True,
                         column_config={"Analyse": st.column_config.LinkColumn(
-                            "Analyse", display_text="🔍", width="small")})
+                            "Analyse", display_text="Analyse", width="small")})
             else:
                 for md in [1, 2, 3]:
                     md_fixtures = [f for f in fixtures if f["matchday"] == md]
@@ -1727,7 +1728,7 @@ def render_tournament():
                         pd.DataFrame(rows), hide_index=True, use_container_width=True,
                         column_config={
                             "Analyse": st.column_config.LinkColumn(
-                                "Analyse", display_text="🔍", width="small")
+                                "Analyse", display_text="Analyse", width="small")
                         },
                     )
                     st.caption("Final standings:")
@@ -1976,9 +1977,9 @@ _FOOTER_HTML = """
     <a href="mailto:support@wcpicks26.app">Contact</a>
   </div>
   <div>
-    A statistical forecasting tool for prediction contests — not a betting
+    A statistical forecasting tool for prediction contests. Not a betting
     service, not financial advice. Predictions are algorithmic and not
-    guaranteed; past accuracy is no guarantee of future results.
+    guaranteed, and past accuracy is no guarantee of future results.
   </div>
   <div style="margin-top: 0.6rem;">
     Model: calibrated Elo + Pi-rating + Dixon-Coles + gradient-boosted ensemble ·

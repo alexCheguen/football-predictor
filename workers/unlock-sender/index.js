@@ -84,26 +84,27 @@ function safeEq(a, b) {
 
 function htmlEmail(unlockUrl) {
   return `<!doctype html>
-<html><body style="font-family: system-ui, -apple-system, sans-serif; background:#0a0e1a; color:#f1f5f9; padding:32px;">
-  <div style="max-width:560px; margin:0 auto; background:#131c2e; border-radius:16px; padding:32px; border:1px solid rgba(16,185,129,0.2);">
-    <h1 style="margin:0 0 16px; font-size:28px; color:#34d399;">Your WC26 Picks unlock is ready</h1>
+<html><body style="font-family: system-ui, -apple-system, sans-serif; background:#11151c; color:#f1f5f9; padding:32px;">
+  <div style="max-width:560px; margin:0 auto; background:#1a2030; border-radius:16px; padding:32px; border:1px solid rgba(37,99,235,0.25);">
+    <h1 style="margin:0 0 16px; font-size:26px; color:#3b82f6;">Your WC26 Picks unlock</h1>
     <p style="font-size:16px; line-height:1.6;">
-      Thanks for buying. Click below to open the full tournament — every fixture,
-      EV-optimised scorelines, the full knockout bracket, and the Monte Carlo simulator.
+      Thanks for buying. The button below opens the full tournament: every fixture
+      with its predicted score, the knockout bracket through to the Final, and the
+      simulator that gives each team's chances of winning the cup.
     </p>
     <p style="margin:32px 0;">
-      <a href="${unlockUrl}" style="display:inline-block; background:linear-gradient(135deg,#10b981,#059669); color:#fff; text-decoration:none; padding:14px 28px; border-radius:10px; font-weight:700;">
+      <a href="${unlockUrl}" style="display:inline-block; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; text-decoration:none; padding:14px 28px; border-radius:10px; font-weight:700;">
         Open WC26 Picks
       </a>
     </p>
     <p style="font-size:13px; color:#94a3b8; line-height:1.6;">
-      Bookmark this email — the link is your access pass and is good through the
-      end of the tournament. If you lose it, email <a href="mailto:support@wcpicks26.app" style="color:#34d399;">support@wcpicks26.app</a>.
+      Keep this email. The link is your access pass and works through the end of
+      the tournament. If you lose it, email <a href="mailto:support@wcpicks26.app" style="color:#60a5fa;">support@wcpicks26.app</a> and we'll resend it.
     </p>
     <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:24px 0;">
     <p style="font-size:12px; color:#64748b; line-height:1.5;">
-      WC26 Picks is a statistical forecasting tool. Not betting advice.
-      Refunds before kickoff at <a href="mailto:support@wcpicks26.app" style="color:#94a3b8;">support@wcpicks26.app</a>.
+      WC26 Picks is a statistical forecasting tool, not betting advice. For a
+      refund before kickoff, email <a href="mailto:support@wcpicks26.app" style="color:#94a3b8;">support@wcpicks26.app</a>.
     </p>
   </div>
 </body></html>`;
