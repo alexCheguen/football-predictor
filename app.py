@@ -27,8 +27,9 @@ from src.tournament import (
 from src.unlock import verify_token
 import app_api_client as api_client
 
+_FAVICON = ROOT / "assets" / "favicon.png"
 st.set_page_config(page_title="WC2026 Picks", layout="wide",
-                   page_icon=":soccer:")
+                   page_icon=str(_FAVICON) if _FAVICON.exists() else ":soccer:")
 
 # Legal pages (?page=terms|privacy|refunds) render standalone and stop, so the
 # main app + paywall never run for those URLs. Must come before any heavy work.
