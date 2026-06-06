@@ -485,16 +485,16 @@ _HERO_HTML = """
   <div class="hero-content">
     <h1>WC2026 Picks</h1>
     <p class="hero-subtitle">
-      Score predictions for your <strong style="color:#f59e0b">2026 World Cup
+      Free predictions for your <strong style="color:#f59e0b">2026 World Cup
       office pool</strong>. For every match it gives the score most likely to win
       you points, set to whatever rules your contest uses. Built on a calibrated
-      statistical model (Dixon-Coles, Pi-rating, machine learning). Try the free
-      preview below, or unlock the whole tournament for £7.
+      statistical model (Dixon-Coles, Pi-rating, machine learning). The whole
+      tournament is free to use this World Cup.
     </p>
     <div class="hero-stats">
       <span class="stat-pill">Calibrated model</span>
       <span class="stat-pill red">Bookmaker-level accuracy</span>
-      <span class="stat-pill gold">2026 World Cup ready</span>
+      <span class="stat-pill gold">Free this World Cup</span>
     </div>
   </div>
 </div>
@@ -519,6 +519,11 @@ WC_ONLY = os.environ.get("WC_ONLY", "1") != "0"
 # like the in-app retrain button, which would OOM the 512MB instance and write
 # to an ephemeral filesystem anyway. Retraining is the daily GitHub Action's job.
 IS_HOSTED = os.environ.get("RENDER") == "true" or os.environ.get("IS_HOSTED") == "1"
+
+# FREE_MODE: the whole tournament is free for everyone (no paywall). We still
+# capture emails for reminders and offer an optional "support" link. Set env
+# FREE_MODE=0 to switch the £7 paywall back on.
+FREE_MODE = os.environ.get("FREE_MODE", "1") != "0"
 
 available_scopes = []
 for name in ["leagues", "internationals"]:
@@ -613,6 +618,8 @@ st.sidebar.divider()
 def _is_unlocked() -> bool:
     """True if the user has presented a valid HMAC unlock token, or already
     verified one earlier in this session. No customer email is ever stored."""
+    if FREE_MODE:
+        return True
     if st.session_state.get("unlocked"):
         return True
     token = st.query_params.get("token")
@@ -692,13 +699,14 @@ def _capture_signup(email: str) -> bool:
         '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;'
         'background:#1a2030;color:#f1f5f9;border-radius:14px;padding:28px;">'
         '<h2 style="color:#3b82f6;margin:0 0 12px;">Your free WC26 picks</h2>'
-        "<p style=\"line-height:1.6;\">Thanks for signing up. Here are the free "
-        f'Matchday 1 predictions: <a href="{link}" style="color:#60a5fa;">{link}</a></p>'
-        "<p style=\"line-height:1.6;\">We'll send one reminder before the tournament "
-        'kicks off on 11 June, with a link to unlock the full bracket for £7.</p>'
+        "<p style=\"line-height:1.6;\">Thanks for signing up. The full tournament "
+        "predictions are free this World Cup, every match plus the knockout bracket: "
+        f'<a href="{link}" style="color:#60a5fa;">{link}</a></p>'
+        "<p style=\"line-height:1.6;\">We'll send a reminder before kickoff on 11 June "
+        'and around the big matchdays.</p>'
         '<p style="font-size:12px;color:#64748b;margin-top:18px;">You\'re getting this '
-        'because you asked for free picks at wcpicks26.app. Not interested? Just ignore '
-        'this email and we won\'t send more.</p></div>'
+        'because you signed up at wcpicks26.app. Not interested? Just ignore this '
+        'email and we won\'t send more.</p></div>'
     )
     try:
         import requests
@@ -707,13 +715,62 @@ def _capture_signup(email: str) -> bool:
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json={"from": "WC26 Picks <unlock@wcpicks26.app>", "to": email,
                   "bcc": "support@wcpicks26.app",
-                  "subject": "Your free WC26 Matchday 1 picks",
+                  "subject": "Your free WC26 World Cup predictions",
                   "html": html, "reply_to": "support@wcpicks26.app"},
             timeout=10,
         )
         return r.ok
     except Exception:
         return False
+
+
+def _render_email_signup(key_prefix: str) -> None:
+    """Reusable email-capture form (free reminders). key_prefix keeps widget
+    keys unique when the form appears in more than one place."""
+    with st.form(f"{key_prefix}_form", clear_on_submit=True):
+        fc1, fc2 = st.columns([3, 1])
+        em = fc1.text_input("Email", placeholder="you@email.com",
+                            label_visibility="collapsed", key=f"{key_prefix}_email")
+        submitted = fc2.form_submit_button("Email me reminders", use_container_width=True)
+        consent = st.checkbox(
+            "Email me a reminder before kickoff and the big matchdays. I've read "
+            "the [Privacy Policy](?page=privacy).", key=f"{key_prefix}_consent")
+        if submitted:
+            if not em or "@" not in em or "." not in em:
+                st.warning("Please enter a valid email address.")
+            elif not consent:
+                st.warning("Please tick the consent box first.")
+            elif _capture_signup(em.strip()):
+                st.success("Done. Check your inbox.")
+            else:
+                st.success("Thanks. We'll be in touch before kickoff.")
+
+
+def _render_free_banner() -> None:
+    """Top-of-tournament banner shown in FREE_MODE: says it's free, captures
+    emails for reminders, and offers an optional support link."""
+    support = _stripe_payment_link()
+    support_html = ""
+    if support and support != "#":
+        support_html = (
+            f' &nbsp;·&nbsp; <a href="{support}" target="_blank" '
+            f'style="color:#f59e0b; text-decoration:none;">Like it? Support the project</a>')
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(135deg,#11224a 0%,#1a2030 100%);
+                    border:1px solid rgba(245,158,11,0.35); border-radius:14px;
+                    padding:0.9rem 1.2rem; margin-bottom:1rem; text-align:center;">
+          <span style="color:#f59e0b; font-weight:700;">Free for the 2026 World Cup.</span>
+          <span style="color:#cbd5e1;"> Every match, the full knockout bracket, and the
+          simulator, no payment needed.</span>{support_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.expander("Get a reminder before kickoff (optional)", expanded=False):
+        st.caption("We'll email you before the tournament starts and around the big "
+                   "matchdays. No spam.")
+        _render_email_signup("free_signup")
 
 
 # ============================================================================
@@ -1443,23 +1500,7 @@ def _render_paywall_teaser():
     st.markdown("#### Not ready to buy?")
     st.caption("Get the free Matchday 1 picks emailed to you, plus one reminder "
                "before the tournament starts.")
-    with st.form("signup_form", clear_on_submit=True):
-        fc1, fc2 = st.columns([3, 1])
-        signup_email = fc1.text_input("Email", placeholder="you@email.com",
-                                      label_visibility="collapsed", key="signup_email")
-        submitted = fc2.form_submit_button("Send picks", use_container_width=True)
-        consent = st.checkbox(
-            "Email me the free picks and a kickoff reminder. I've read the "
-            "[Privacy Policy](?page=privacy).", key="signup_consent")
-        if submitted:
-            if not signup_email or "@" not in signup_email or "." not in signup_email:
-                st.warning("Please enter a valid email address.")
-            elif not consent:
-                st.warning("Please tick the consent box first.")
-            elif _capture_signup(signup_email.strip()):
-                st.success("Done. Check your inbox for the free picks.")
-            else:
-                st.success("Thanks. We'll be in touch before kickoff.")
+    _render_email_signup("teaser_signup")
 
 
 def _free_md1_pairs() -> set[tuple[str, str]]:
@@ -1579,6 +1620,9 @@ def render_tournament():
     if not unlocked:
         _render_paywall_teaser()
         return
+
+    if FREE_MODE:
+        _render_free_banner()
 
     bundle = get_bundle("internationals")
     all_teams = sorted(bundle.teams)
