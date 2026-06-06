@@ -474,7 +474,12 @@ section[data-testid="stSidebar"] h1 {
     .hero h1 { font-size: 1.8rem !important; }
     .hero-subtitle { font-size: 0.95rem; }
     [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
-    .bracket-round { min-width: 165px; }
+    /* Stack the knockout rounds vertically on phones instead of a wide
+       sideways scroll — far easier to read round by round. */
+    .bracket-wrap { flex-direction: column; overflow-x: visible; gap: 1.2rem; }
+    .bracket-round { min-width: 100%; flex: none; }
+    .bracket-round-title { font-size: 0.82rem; padding-top: 0.4rem;
+        border-top: 1px solid rgba(255,255,255,0.08); }
 }
 </style>
 """
@@ -1267,10 +1272,16 @@ def _render_bracket(rounds: list[list[dict]], champion: str | None) -> None:
     if champion:
         st.markdown(
             f'<div class="bracket-champion">'
-            f'<div class="ch-label">🏆 Predicted Champion</div>'
+            f'<div class="ch-label">🏆 Most-likely path winner</div>'
             f'<div class="ch-team">{_team_label(champion)}</div>'
             f'</div>',
             unsafe_allow_html=True,
+        )
+        st.caption(
+            "This bracket follows one path: the favourite's most-likely result in "
+            "every match. A single path can't show upsets, so the winner here "
+            "won't always be the team most likely to lift the trophy overall. "
+            "For true title odds, run the simulation at the bottom of the page."
         )
 
 
@@ -1937,6 +1948,10 @@ def render_tournament():
             result = simulate_knockout(bundle, fmt, groups, n_sims=int(n_sims),
                                        fmt_name=fmt_name, wc_blend=wc_blend)
         st.success(f"Done - {n_sims:,} tournaments simulated.")
+        st.info("These are the **real title odds** — how often each team won "
+                "across every simulated tournament, upsets included. This is the "
+                "reliable 'who will win' answer, and it can differ from the single "
+                "most-likely bracket above.")
         st.subheader("Stage advancement probabilities")
         # Pretty-format every '... %' column
         styled = result.copy()
