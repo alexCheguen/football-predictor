@@ -2209,7 +2209,7 @@ _FOOTER_HTML = """
     <a href="https://understat.com" target="_blank">Understat</a>
   </div>
   <div style="margin-top: 0.8rem;">
-    <a href="https://github.com/jdgoated1/football-predictor" target="_blank">
+    <a href="https://github.com/alexCheguen/football-predictor/" target="_blank">
       ★ View source on GitHub
     </a>
   </div>
