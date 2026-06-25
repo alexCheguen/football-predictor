@@ -658,7 +658,7 @@ def _stripe_payment_link() -> str:
 def _app_base_url() -> str:
     """Base URL for building absolute in-app links (Streamlit's LinkColumn
     needs absolute URLs). Override with APP_BASE_URL env var for local dev."""
-    return os.environ.get("APP_BASE_URL", "https://wcpicks26.app").rstrip("/")
+    return os.environ.get("APP_BASE_URL", "https://predictfutboll.streamlit.app").rstrip("/")
 
 
 def _current_token() -> str:
